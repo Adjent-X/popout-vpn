@@ -39,7 +39,17 @@ The panel is a single dark admin: VPN configs, live analytics, attack captures, 
 
 <p align="center">
   <img src="docs/assets/screenshots/03-attacks.png" alt="Attacks — detections with pcap download and analyze" width="920" /><br/>
-  <sub><strong>Attacks.</strong> Threshold detections (warning through critical) with packet rates, on-disk <code>.pcap</code> files, analyze, download, and delete. Deleting a capture drops the file only — 24h / lifetime analytics remain.</sub>
+  <sub><strong>Attacks.</strong> Packet-rate threshold detections (warning through critical) with on-disk <code>.pcap</code> files, analyze, download, and delete. Deleting a capture drops the file only — 24h / lifetime analytics remain.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/06-capture-analysis.png" alt="Capture analysis — tshark heuristics with confidence scores" width="920" /><br/>
+  <sub><strong>Capture analysis.</strong> Open a pcap and Popout runs <code>tshark</code> line-by-line heuristics — not a static IOC / signature database. Labels like “Likely UDP flood” ship with confidence scores, plus protocol mix and source-country breakdown.</sub>
+</p>
+
+<p align="center">
+  <img src="docs/assets/screenshots/07-attack-geo.png" alt="Attack geo heatmap and top source IPs" width="920" /><br/>
+  <sub><strong>Source geography.</strong> Heatmap of unique sources from the capture, plus top source IPs with geo and packet share — how “highly distributed sources” shows up on the map.</sub>
 </p>
 
 <p align="center">
@@ -60,9 +70,22 @@ The panel is a single dark admin: VPN configs, live analytics, attack captures, 
 - **Admin portal** — Next.js + FastAPI. Issue and revoke `.ovpn` files, invite staff, scoped API keys, live sessions.
 - **Optional Cloudflare** — yes/no during install. Domain + zone API token (or Global API Key). DNS, SSL Full, cache rules, WAF. **The tunnel is never proxied.**
 - **Multiport / knock-style remotes** — ipset `ephemeral-ports` (45000–45099) plus iptables `REDIRECT` to the real OpenVPN port. Clients can advertise `remote-random`.
-- **Ops extras** — CAKE shaping on `tun0`, attack monitor + pcap, zip backups, VPN-only admin on `10.8.0.1`.
+- **Ops extras** — CAKE shaping on `tun0`, heuristic attack monitor + pcap analysis, zip backups, VPN-only admin on `10.8.0.1`.
 
 After install you get a boxed summary: **admin URL(s), generated email/password, version, and commands** — same idea as Pi-hole’s finish screen.
+
+---
+
+## Attack detection (heuristics)
+
+Popout does **not** ship a classic signature / IOC pack (no “match this exact byte pattern” catalog). Detection is **heuristic**, in two layers:
+
+1. **Live monitor** — samples WAN packet rate (pps / bits). When traffic crosses warning → attack → severe → critical thresholds for long enough, it records an event and optionally captures a `.pcap`.
+2. **Capture analysis** — **Analyze** runs `tshark` over that capture and scores traffic shape: protocol mix, TCP flag ratios (SYN / ACK / RST floods), UDP amplification ports, GRE encapsulation, unique source count, and similar signals. Each hit is a label with a **confidence %** (for example *Likely UDP flood · 99%*, *Highly distributed sources · 95%*).
+
+That is intentional for a VPN edge: volumetric floods mutate constantly; heuristics on rate and packet composition stay useful without a constantly updated signature feed. Results are advisory for operators (and Discord embeds if you configure them) — not an automatic blackhole.
+
+Thresholds, retention, and BPF filters are editable under **Server settings → Attack capture**.
 
 ---
 

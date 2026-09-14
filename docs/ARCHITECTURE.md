@@ -43,6 +43,10 @@ iptables -t nat -A PREROUTING -p tcp -m set --match-set ephemeral-ports dst \
 
 (same for UDP). Persisted by `popout-ephemeral-ports.service` and `ipset-restore.service`.
 
+## Attack monitor
+
+`monitor/attacks.sh` watches WAN pps thresholds and writes events + optional pcaps under `/var/log/popout-vpn/`. Panel **Analyze** calls `backend/app/services/pcap_analysis.py`: `tshark` line-by-line stats scored with **heuristics** (UDP flood, SYN flood, amplification ports, GRE, distributed sources, etc.) plus confidence %, protocol pie, and source geo — not a static signature / IOC database.
+
 ## Auth
 
 First admin is seeded from `BOOTSTRAP_ADMIN_*` only when the `admins` collection is empty. JWT access + refresh; optional Cloudflare Turnstile; optional public password gate for the Cloudflare hostname.

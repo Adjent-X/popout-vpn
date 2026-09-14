@@ -6,7 +6,7 @@ Thanks for making Popout VPN less of a private ops tool and more of a product.
 
 - Bug reports with distro (`/etc/os-release`), installer log, and `popout-vpn version`
 - Installer coverage on a distro Angristan supports but we mishandle
-- UI copy, accessibility, and docs
+- UI copy, accessibility, docs, and README screenshots
 - Features that match [ROADMAP.md](ROADMAP.md)
 
 ## Dev setup (Linux)

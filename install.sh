@@ -22,7 +22,7 @@ ensure_full_tree() {
   fi
   echo "This copy of install.sh is missing the install/ library."
   echo "Cloning the Popout VPN repository…"
-  local slug="${POPOUT_GITHUB_SLUG:-popout-vpn/popout-vpn}"
+  local slug="${POPOUT_GITHUB_SLUG:-Adjent-X/popout-vpn}"
   local dest="${POPOUT_PANEL_ROOT:-/opt/popout-vpn}"
   mkdir -p "$(dirname "$dest")"
   if [[ -d "$dest/.git" ]]; then

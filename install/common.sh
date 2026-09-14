@@ -66,7 +66,7 @@ popout_github_slug() {
     echo "$remote"
     return
   fi
-  echo "popout-vpn/popout-vpn"
+  echo "Adjent-X/popout-vpn"
 }
 
 popout_github_url() {

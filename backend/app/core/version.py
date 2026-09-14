@@ -43,4 +43,4 @@ def github_repo_url() -> str:
     slug = github_repo_slug()
     if slug:
         return f"https://github.com/{slug}"
-    return "https://github.com/popout-vpn/popout-vpn"
+    return "https://github.com/Adjent-X/popout-vpn"

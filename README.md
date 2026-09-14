@@ -42,14 +42,14 @@ After install you get a boxed summary: **admin URL(s), generated email/password,
 You need a Linux VPS with a public IPv4, root, and `/dev/net/tun`. **Not Windows. Not macOS.** Same rule as Angristan.
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/popout-vpn/popout-vpn/main/install.sh -o popout-vpn-install.sh
+curl -fsSL https://raw.githubusercontent.com/Adjent-X/popout-vpn/main/install.sh -o popout-vpn-install.sh
 sudo bash popout-vpn-install.sh
 ```
 
 Or clone and run from the tree:
 
 ```bash
-git clone https://github.com/popout-vpn/popout-vpn.git
+git clone https://github.com/Adjent-X/popout-vpn.git
 cd popout-vpn
 sudo bash install.sh
 ```

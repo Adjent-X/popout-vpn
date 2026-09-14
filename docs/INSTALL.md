@@ -15,7 +15,7 @@ Popout VPN targets a **Linux VPS** with root and TUN — the same platforms as [
 ## Quick start
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/popout-vpn/popout-vpn/main/install.sh \
+curl -fsSL https://raw.githubusercontent.com/Adjent-X/popout-vpn/main/install.sh \
   -o popout-vpn-install.sh
 sudo bash popout-vpn-install.sh
 ```

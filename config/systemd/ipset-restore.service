@@ -1,0 +1,13 @@
+[Unit]
+Description=Restore ipset sets from /etc/iptables/ipsets
+DefaultDependencies=no
+Before=network-pre.target
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/bash -c 'test -f /etc/iptables/ipsets && ipset restore -exist < /etc/iptables/ipsets || true'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

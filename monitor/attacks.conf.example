@@ -1,0 +1,20 @@
+# Managed by Popout VPN panel — do not edit by hand (panel overwrites on save).
+interface="eth0"
+threshold_warning=25000
+threshold_attack=50000
+threshold_severe=100000
+threshold_critical=250000
+required_hits=5
+cooldown=300
+enable_capture=true
+capture_dir="/var/log/popout-vpn/captures"
+events_dir="/var/log/popout-vpn/events"
+capture_filter=""
+capture_packet_count=4500
+capture_snaplength=65535
+capture_promiscuous=true
+retention_days=7
+webhook_url=""
+mitigation_system="OVH Advanced DDoS Protection"
+affected_service="vpn"
+footer_text="Popout VPN"

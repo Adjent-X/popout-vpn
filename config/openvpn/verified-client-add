@@ -1,0 +1,19 @@
+#!/bin/sh
+# Add connecting OpenVPN client's public (trusted) IP to verified-clients ipset.
+# Called via sudo from client-connect (OpenVPN runs as nobody).
+
+IP="$1"
+
+case "$IP" in
+    ''|*[!0-9.]*)
+        exit 1
+        ;;
+esac
+
+# Minimal dotted-quad check
+echo "$IP" | grep -Eq '^[0-9]{1,3}(\.[0-9]{1,3}){3}$' || exit 1
+
+/sbin/ipset create verified-clients hash:ip family inet hashsize 1024 maxelem 100000000 -exist
+/sbin/ipset add verified-clients "$IP" -exist
+/sbin/ipset save > /etc/iptables/ipsets 2>/dev/null || true
+exit 0

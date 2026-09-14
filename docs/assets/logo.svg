@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 160" role="img" aria-label="Popout VPN">
+  <rect width="640" height="160" rx="24" fill="#0a0e14"/>
+  <path d="M64 28 L108 44 V92 C108 118 84 136 64 146 C44 136 20 118 20 92 V44 Z" fill="#1e3a8a"/>
+  <path d="M64 36 L100 50 V92 C100 114 80 130 64 138 C48 130 28 114 28 92 V50 Z" fill="none" stroke="#06b6d4" stroke-width="4" stroke-linejoin="round"/>
+  <path d="M64 58 L82 90 H72 L64 78 L56 90 H46 Z" fill="#67e8f9"/>
+  <text x="140" y="78" font-family="ui-sans-serif, system-ui, Segoe UI, sans-serif" font-size="48" font-weight="700" fill="#f8fafc">Popout</text>
+  <text x="140" y="118" font-family="ui-sans-serif, system-ui, Segoe UI, sans-serif" font-size="28" font-weight="500" fill="#67e8f9">VPN suite</text>
+</svg>

@@ -1,0 +1,23 @@
+[Unit]
+Description=Popout VPN Admin API (uvicorn)
+After=network-online.target mongod.service openvpn-server@server.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/popout-vpn/backend
+EnvironmentFile=-/opt/popout-vpn/config/app.env
+EnvironmentFile=-/opt/popout-vpn/backend/.env
+Environment=PYTHONOPTIMIZE=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+Environment=PYTHONUNBUFFERED=1
+ExecStart=/opt/popout-vpn/backend/.venv/bin/python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --limit-concurrency 64 --timeout-keep-alive 5
+Restart=always
+RestartSec=3
+TimeoutStopSec=25
+KillMode=mixed
+StandardOutput=append:/opt/popout-vpn/logs/backend.log
+StandardError=append:/opt/popout-vpn/logs/backend.log
+
+[Install]
+WantedBy=multi-user.target

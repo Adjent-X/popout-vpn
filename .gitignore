@@ -1,0 +1,46 @@
+# Dependencies / build
+node_modules/
+.next/
+out/
+dist/
+build/
+*.egg-info/
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+!.env.example
+config/app.env
+!config/app.env.example
+
+# IDE / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db
+
+# Logs / coverage
+*.log
+logs/
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# OpenVPN generated artifacts
+*.ovpn
+*.crt
+*.key
+*.pem
+!backend/.env.example
+!frontend/.env.example

@@ -1,0 +1,14 @@
+[Unit]
+Description=Popout VPN ephemeral-ports ipset + NAT REDIRECT
+DefaultDependencies=no
+After=network-pre.target
+Before=network.target openvpn-server@server.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/popout-ephemeral-ports.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

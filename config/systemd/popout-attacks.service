@@ -1,0 +1,21 @@
+[Unit]
+Description=Popout VPN attack monitor (pps + pcap)
+After=network-online.target
+Wants=network-online.target
+After=openvpn-server@server.service
+
+[Service]
+Type=simple
+ExecStart=/opt/popout-vpn/monitor/attacks.sh
+Restart=always
+RestartSec=5
+KillMode=mixed
+TimeoutStopSec=20
+Environment=POPOUT_ATTACKS_CONF=/etc/popout-vpn/attacks.conf
+Environment=POPOUT_ATTACKS_LOG=/var/log/popout-vpn/monitor.log
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN CAP_KILL CAP_SETUID CAP_SETGID
+NoNewPrivileges=false
+
+[Install]
+WantedBy=multi-user.target

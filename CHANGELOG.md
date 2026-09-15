@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Credit Stanislas Lange ([@angristan](https://github.com/angristan)) as the upstream OpenVPN installer author.
 - CI: shellcheck now follows sourced installer helpers (`-x`) and fails the job on those findings.
 - Installer generates a public access code when Cloudflare is enabled and prints it on the finish screen.
 - Fix missing `fi` in ephemeral-ports setup that could skip NAT REDIRECT configuration.

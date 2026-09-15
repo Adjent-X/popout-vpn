@@ -263,9 +263,12 @@ Issues and PRs are welcome. This is meant to be a product, not a private ops dum
 
 ---
 
+## Contributors
+
+- [Stanislas Lange](https://github.com/angristan) ([@angristan](https://github.com/angristan)) — [openvpn-install](https://github.com/angristan/openvpn-install) (GPL-3.0). Popout downloads and runs that installer when OpenVPN is missing. We do not vendor or relicense it.
+
 ## Credits
 
-- [Angristan/openvpn-install](https://github.com/angristan/openvpn-install) — GPL-3.0. We **download and run** that installer; we do not relicense it. Popout VPN itself is MIT.
 - Inspired by the Pi-hole installer finish screen (clear URLs, one default password, “you’re done”).
 
 ## License

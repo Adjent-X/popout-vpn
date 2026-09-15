@@ -11,17 +11,17 @@ Run with no arguments for an interactive menu (Angristan-style).
 | `popout-vpn env` | Print `/opt/popout-vpn/config/app.env` with `PASSWORD`/`SECRET`/`TOKEN`/`KEY` masked |
 | `popout-vpn env --show-secrets` | Same, after a yes/no confirm |
 | `popout-vpn settings` | Pretty-print live Server settings from Mongo (secrets redacted) |
-| `popout-vpn status` | systemd `is-active` for panel, mongo, nginx, OpenVPN |
+| `popout-vpn status` | systemd `is-active` for panel, mongo, nginx, OpenVPN UDP/TCP, WireGuard, DNAT |
 | `popout-vpn reinstall` | `install.sh reinstall` — packages, panel, firewall, Cloudflare; **keeps PKI and Mongo** |
 | `popout-vpn restart` | Restart backend, frontend, attack monitor |
 | `popout-vpn uninstall` | Stop units; optional delete of `/opt/popout-vpn` |
 
 Version correlation:
 
-- Repo root `VERSION` (currently `0.1.0`)
+- Repo root `VERSION` (currently `0.2.0-beta`)
 - `APP_VERSION` / `GITHUB_REPO` in `config/app.env`
 - `GET /api/health` → `{ "status", "version", "repository", "timestamp" }`
-- GitHub release tags should match `VERSION` (v0.1.0, …)
+- GitHub release tags should match `VERSION` (v0.2.0-beta, …)
 
 Installer entry points:
 

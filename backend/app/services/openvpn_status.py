@@ -32,23 +32,46 @@ def _as_utc_from_unix(ts: int | float) -> datetime:
     return datetime.fromtimestamp(float(ts), tz=timezone.utc)
 
 
-def parse_ipp(path: str | Path | None = None) -> dict[str, str]:
-    """Map common_name -> vpn IP from ifconfig-pool-persist."""
+def _ipp_paths(path: str | Path | None = None) -> list[Path]:
     settings = get_settings()
-    p = Path(path or settings.OPENVPN_IPP_PATH)
+    candidates = [
+        Path(path) if path else None,
+        Path("/etc/openvpn/server/ipp-udp.txt"),
+        Path("/etc/openvpn/server/ipp-tcp.txt"),
+        Path(settings.OPENVPN_IPP_PATH),
+        Path("/etc/openvpn/server/ipp.txt"),
+    ]
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            key = raw.resolve()
+        except OSError:
+            key = raw
+        if key in seen:
+            continue
+        seen.add(key)
+        if raw.is_file():
+            out.append(raw)
+    return out
+
+
+def parse_ipp(path: str | Path | None = None) -> dict[str, str]:
+    """Map common_name -> vpn IP from ifconfig-pool-persist (UDP + TCP)."""
     mapping: dict[str, str] = {}
-    if not p.is_file():
-        return mapping
-    try:
-        for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
-            line = line.strip()
-            if not line or line.startswith("#"):
-                continue
-            parts = [x.strip() for x in line.split(",")]
-            if len(parts) >= 2 and parts[0] and parts[1]:
-                mapping[parts[0]] = parts[1]
-    except OSError as exc:
-        logger.warning("Could not read ipp.txt %s: %s", p, exc)
+    for p in _ipp_paths(path):
+        try:
+            for line in p.read_text(encoding="utf-8", errors="replace").splitlines():
+                line = line.strip()
+                if not line or line.startswith("#"):
+                    continue
+                parts = [x.strip() for x in line.split(",")]
+                if len(parts) >= 2 and parts[0] and parts[1]:
+                    mapping[parts[0]] = parts[1]
+        except OSError as exc:
+            logger.warning("Could not read ipp.txt %s: %s", p, exc)
     return mapping
 
 
@@ -77,22 +100,58 @@ def _extract_wan_ip(real_address: str) -> str | None:
     return real or None
 
 
+def _status_paths(path: str | Path | None = None) -> list[Path]:
+    settings = get_settings()
+    candidates = [
+        Path(path) if path else None,
+        Path("/etc/openvpn/server/openvpn-status-udp.log"),
+        Path("/etc/openvpn/server/openvpn-status-tcp.log"),
+        Path(settings.OPENVPN_STATUS_PATH),
+        Path("/etc/openvpn/server/openvpn-status.log"),
+    ]
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for raw in candidates:
+        if raw is None:
+            continue
+        try:
+            key = raw.resolve()
+        except OSError:
+            key = raw
+        if key in seen:
+            continue
+        seen.add(key)
+        if raw.is_file():
+            out.append(raw)
+    return out
+
+
 def parse_status(path: str | Path | None = None) -> StatusSnapshot:
     """
-    Parse OpenVPN status-version 2/3 file.
+    Parse OpenVPN status-version 2/3 files (UDP + TCP instances).
     Falls back to empty snapshot if missing.
     """
-    settings = get_settings()
-    p = Path(path or settings.OPENVPN_STATUS_PATH)
     snap = StatusSnapshot(updated_at=datetime.now(timezone.utc))
-    if not p.is_file():
+    files = _status_paths(path)
+    if not files:
         return snap
+    clients: list[ConnectedClient] = []
+    for p in files:
+        try:
+            text = p.read_text(encoding="utf-8", errors="replace")
+        except OSError as exc:
+            logger.warning("Could not read status file %s: %s", p, exc)
+            continue
+        part = _parse_status_text(text)
+        clients.extend(part.clients)
+        if part.updated_at:
+            snap.updated_at = part.updated_at
+    snap.clients = clients
+    return snap
 
-    try:
-        text = p.read_text(encoding="utf-8", errors="replace")
-    except OSError as exc:
-        logger.warning("Could not read status file %s: %s", p, exc)
-        return snap
+
+def _parse_status_text(text: str) -> StatusSnapshot:
+    snap = StatusSnapshot(updated_at=datetime.now(timezone.utc))
 
     clients: list[ConnectedClient] = []
     # STATUS VERSION 2/3: CLIENT_LIST lines

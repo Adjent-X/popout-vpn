@@ -24,11 +24,14 @@ ensure_full_tree() {
   echo "Cloning the Popout VPN repository…"
   local slug="${POPOUT_GITHUB_SLUG:-Adjent-X/popout-vpn}"
   local dest="${POPOUT_PANEL_ROOT:-/opt/popout-vpn}"
+  local ref="${POPOUT_GIT_REF:-beta}"
   mkdir -p "$(dirname "$dest")"
   if [[ -d "$dest/.git" ]]; then
-    git -C "$dest" pull --ff-only || true
+    git -C "$dest" fetch origin "$ref" || git -C "$dest" pull --ff-only || true
+    git -C "$dest" checkout "$ref" 2>/dev/null || true
   else
-    git clone "https://github.com/${slug}.git" "$dest"
+    git clone --branch "$ref" --single-branch "https://github.com/${slug}.git" "$dest" \
+      || git clone "https://github.com/${slug}.git" "$dest"
   fi
   exec bash "${dest}/install.sh" "$@"
 }
@@ -43,6 +46,10 @@ source "${POPOUT_SRC}/install/os.sh"
 source "${POPOUT_SRC}/install/packages.sh"
 # shellcheck source=install/openvpn.sh
 source "${POPOUT_SRC}/install/openvpn.sh"
+# shellcheck source=install/wireguard.sh
+source "${POPOUT_SRC}/install/wireguard.sh"
+# shellcheck source=install/dnat.sh
+source "${POPOUT_SRC}/install/dnat.sh"
 # shellcheck source=install/cloudflare.sh
 source "${POPOUT_SRC}/install/cloudflare.sh"
 # shellcheck source=install/firewall-ephemeral.sh
@@ -58,7 +65,7 @@ Popout VPN $(popout_version) installer
 
 Usage: sudo bash install.sh [command]
 
-  (no args)    Full install: OpenVPN (Angristan) → Cloudflare prompt → stack
+  (no args)    Full install: OpenVPN UDP+TCP + WireGuard (Angristan) → Cloudflare → stack
   reinstall    Repair panel, firewall, and optional Cloudflare (keep PKI/Mongo)
   uninstall    Stop services and remove the panel (asks before wiping PKI)
   help         This message
@@ -74,11 +81,12 @@ uninstall_stack() {
   local yn
   yn="$(ask_yn "Uninstall the Popout panel? [y/N]" "n")"
   [[ "$yn" == "y" ]] || exit 0
-  systemctl disable --now popout-backend popout-frontend popout-attacks popout-ephemeral-ports 2>/dev/null || true
+  systemctl disable --now popout-backend popout-frontend popout-attacks popout-ephemeral-ports popout-dnat 2>/dev/null || true
   rm -f /etc/systemd/system/popout-backend.service \
         /etc/systemd/system/popout-frontend.service \
         /etc/systemd/system/popout-attacks.service \
-        /etc/systemd/system/popout-ephemeral-ports.service
+        /etc/systemd/system/popout-ephemeral-ports.service \
+        /etc/systemd/system/popout-dnat.service
   systemctl daemon-reload
   rm -f /usr/local/bin/popout-vpn /etc/nginx/conf.d/popout-vpn.conf
   if nginx -t >/dev/null 2>&1; then
@@ -97,13 +105,17 @@ reinstall_stack() {
   check_os
   load_state
   load_cloudflare_env 2>/dev/null || true
-  info "Reinstall / repair (OpenVPN PKI and Mongo data are kept)"
+  info "Reinstall / repair (OpenVPN PKI, WireGuard, and Mongo data are kept)"
   install_base_packages
   install_node20
   install_mongodb
   ensure_openvpn
   install_openvpn_hooks
+  configure_dual_openvpn
+  ensure_wireguard
+  bind_wireguard_listen
   deploy_panel_stack
+  install_dnat_forwarding
   setup_ephemeral_ports
   if [[ "${CF_ENABLED:-n}" == "y" ]]; then
     apply_cloudflare_zone
@@ -121,29 +133,35 @@ full_install() {
 
   echo
   echo "${C_BOLD}Popout VPN $(popout_version)${C_RESET}"
-  echo "All-in-one OpenVPN suite — same OS coverage as Angristan,"
-  echo "then a web admin, optional Cloudflare, and ephemeral-port redirect."
+  echo "All-in-one OpenVPN + WireGuard suite — Angristan installers,"
+  echo "dual OpenVPN (UDP+TCP), WireGuard, private bind IP, and DNAT."
   echo
 
-  info "Step 1/6 — base packages"
+  info "Step 1/7 — base packages"
   install_base_packages
   install_node20
   install_mongodb
 
-  info "Step 2/6 — OpenVPN (Angristan)"
+  info "Step 2/7 — OpenVPN (Angristan) then UDP + TCP instances"
   ensure_openvpn
   install_openvpn_hooks
+  configure_dual_openvpn
 
-  info "Step 3/6 — Cloudflare"
+  info "Step 3/7 — WireGuard (Angristan)"
+  ensure_wireguard
+  bind_wireguard_listen
+
+  info "Step 4/7 — Cloudflare"
   prompt_cloudflare
 
-  info "Step 4/6 — control plane"
+  info "Step 5/7 — control plane"
   deploy_panel_stack
 
-  info "Step 5/6 — ephemeral-ports ipset + NAT REDIRECT"
+  info "Step 6/7 — bind IP + persistent DNAT --to-destination"
+  install_dnat_forwarding
   setup_ephemeral_ports
 
-  info "Step 6/6 — Cloudflare zone (if enabled) + origin lock"
+  info "Step 7/7 — Cloudflare zone (if enabled) + origin lock"
   if [[ "${CF_ENABLED:-n}" == "y" ]]; then
     apply_cloudflare_zone
     seed_cloudflare_into_app

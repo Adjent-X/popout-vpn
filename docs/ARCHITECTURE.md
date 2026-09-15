@@ -1,13 +1,14 @@
 # Architecture
 
-Popout VPN is a **control plane** for an OpenVPN server on the same machine. It does not replace OpenVPN; it manages PKI, clients, and operations around it.
+Popout VPN is a **control plane** for OpenVPN and WireGuard on the same machine. It does not replace those daemons; it manages PKI, peers, and operations around them.
 
 ```
 Internet
    │
-   ├─ OpenVPN (Angristan or existing Nyr)
-   │     tun0 10.8.0.0/24
-   │     ipset ephemeral-ports → iptables NAT REDIRECT → real listen port
+   ├─ iptables NAT POPOUT_DNAT  (-j DNAT --to-destination 10.255.255.1:port)
+   │     ├─ OpenVPN UDP  (openvpn-server@udp, tun0 10.8.0.0/24)
+   │     ├─ OpenVPN TCP  (openvpn-server@tcp, tun1 10.9.0.0/24)
+   │     └─ WireGuard    (wg-quick@wg0, Angristan layout)
    │
    └─ HTTPS 80/443 (optional Cloudflare orange-cloud)
          nginx
@@ -34,14 +35,14 @@ Canonical install root: **`/opt/popout-vpn`**. Config: `/etc/popout-vpn`. Logs: 
 
 ## Multiport
 
-Site settings `ovpn_remote_mode=remote_random` emits `remote-random` plus one `remote` per port in `45000–45099`. The installer creates ipset **`ephemeral-ports`** (bitmap:port) and:
+Site settings `ovpn_remote_mode=remote_random` emits `remote-random` plus one `remote` per port in `45000–45099` (UDP and/or TCP). The installer creates ipset **`ephemeral-ports`** (bitmap:port) and persisted DNAT:
 
 ```text
-iptables -t nat -A PREROUTING -p tcp -m set --match-set ephemeral-ports dst \
-  -j REDIRECT --to-ports <openvpn>
+iptables -t nat -A POPOUT_DNAT -p udp -m set --match-set ephemeral-ports dst \
+  -j DNAT --to-destination 10.255.255.1:1194
 ```
 
-(same for UDP). Persisted by `popout-ephemeral-ports.service` and `ipset-restore.service`.
+(same idea for TCP → `:1195`). Applied by `popout-dnat.service` and `ipset-restore.service`.
 
 ## Attack monitor
 

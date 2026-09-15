@@ -16,6 +16,16 @@ router = APIRouter(prefix="/api/site-settings", tags=["site-settings"])
 
 
 def _to_admin_response(data, source: str) -> SiteSettingsAdminResponse:
+    wg_installed = False
+    servers: dict = {}
+    try:
+        from app.services.vpn_servers import server_status
+        from app.services.wireguard import wg_available
+
+        wg_installed = wg_available()
+        servers = server_status(data)
+    except Exception:
+        pass
     return SiteSettingsAdminResponse(
         turnstile_enabled=data.turnstile_enabled,
         turnstile_site_key=data.turnstile_site_key,
@@ -33,6 +43,20 @@ def _to_admin_response(data, source: str) -> SiteSettingsAdminResponse:
         ovpn_remote_port_min=data.ovpn_remote_port_min,
         ovpn_remote_port_max=data.ovpn_remote_port_max,
         ovpn_proto=data.ovpn_proto,
+        ovpn_udp_enabled=bool(getattr(data, "ovpn_udp_enabled", True)),
+        ovpn_tcp_enabled=bool(getattr(data, "ovpn_tcp_enabled", True)),
+        ovpn_udp_port=int(getattr(data, "ovpn_udp_port", 1194) or 1194),
+        ovpn_tcp_port=int(getattr(data, "ovpn_tcp_port", 1195) or 1195),
+        vpn_bind_ip=getattr(data, "vpn_bind_ip", None) or "10.255.255.1",
+        wg_enabled=bool(getattr(data, "wg_enabled", True)),
+        wg_listen_port=int(getattr(data, "wg_listen_port", 51820) or 51820),
+        wg_endpoint_host=getattr(data, "wg_endpoint_host", None) or "",
+        wg_dns=getattr(data, "wg_dns", None) or "1.1.1.1,1.0.0.1",
+        wg_allowed_ips=getattr(data, "wg_allowed_ips", None) or "0.0.0.0/0,::/0",
+        wg_mtu=int(getattr(data, "wg_mtu", 1420) or 1420),
+        wg_keepalive=int(getattr(data, "wg_keepalive", 25) or 25),
+        wireguard_installed=wg_installed,
+        vpn_servers=servers,
         ovpn_tun_mtu=data.ovpn_tun_mtu,
         ovpn_mssfix=data.ovpn_mssfix,
         ovpn_tcp_nodelay=data.ovpn_tcp_nodelay,
@@ -361,6 +385,42 @@ async def patch_site_settings(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail=f"Saved settings but Cloudflare sync failed: {exc}",
             ) from exc
+
+    vpn_unit_keys = (
+        "ovpn_udp_enabled",
+        "ovpn_tcp_enabled",
+        "wg_enabled",
+        "ovpn_udp_port",
+        "ovpn_tcp_port",
+        "wg_listen_port",
+        "vpn_bind_ip",
+    )
+    vpn_param_keys = vpn_unit_keys + (
+        "wg_endpoint_host",
+        "wg_dns",
+        "wg_allowed_ips",
+        "wg_mtu",
+        "wg_keepalive",
+        "ovpn_remote_host",
+        "ovpn_remote_port_min",
+        "ovpn_remote_port_max",
+    )
+    if any(k in updates for k in vpn_param_keys):
+        try:
+            import asyncio
+
+            from app.services.vpn_servers import apply_vpn_servers
+
+            touch_units = any(k in updates for k in vpn_unit_keys)
+            await asyncio.to_thread(
+                apply_vpn_servers, data, touch_units=touch_units
+            )
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception(
+                "Failed to apply VPN server enable/disable / DNAT"
+            )
 
     return _with_live_shape(_to_admin_response(data, source))
 

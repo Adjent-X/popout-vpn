@@ -108,7 +108,7 @@ class Settings(BaseSettings):
     PANEL_ROOT: str = "/opt/popout-vpn"
 
     # Displayed by /api/health and the popout-vpn CLI
-    APP_VERSION: str = "0.1.0"
+    APP_VERSION: str = "0.2.0-beta"
     GITHUB_REPO: str = ""
 
     # Scheduler

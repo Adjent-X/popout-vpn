@@ -14,8 +14,26 @@ from app.services.openvpn_layout import (
 )
 
 
+def _udp_enabled(data: SiteSettingsData) -> bool:
+    return bool(getattr(data, "ovpn_udp_enabled", True))
+
+
+def _tcp_enabled(data: SiteSettingsData) -> bool:
+    return bool(getattr(data, "ovpn_tcp_enabled", True))
+
+
+def _udp_port(data: SiteSettingsData) -> int:
+    return int(getattr(data, "ovpn_udp_port", None) or data.ovpn_remote_port or 1194)
+
+
+def _tcp_port(data: SiteSettingsData) -> int:
+    return int(getattr(data, "ovpn_tcp_port", None) or 1195)
+
+
 def _remote_directive_lines(data: SiteSettingsData) -> list[str]:
     host = data.ovpn_remote_host.strip()
+    udp_on = _udp_enabled(data)
+    tcp_on = _tcp_enabled(data)
     if data.ovpn_remote_mode == "remote_random":
         lo = int(data.ovpn_remote_port_min)
         hi = int(data.ovpn_remote_port_max)
@@ -23,9 +41,22 @@ def _remote_directive_lines(data: SiteSettingsData) -> list[str]:
             lo, hi = hi, lo
         lines = ["remote-random"]
         for port in range(lo, hi + 1):
-            lines.append(f"remote {host} {port}")
+            if udp_on:
+                lines.append(f"remote {host} {port} udp")
+            if tcp_on:
+                lines.append(f"remote {host} {port} tcp")
+        if not udp_on and not tcp_on:
+            for port in range(lo, hi + 1):
+                lines.append(f"remote {host} {port}")
         return lines
-    return [f"remote {host} {int(data.ovpn_remote_port)}"]
+    lines: list[str] = []
+    if udp_on:
+        lines.append(f"remote {host} {_udp_port(data)} udp")
+    if tcp_on:
+        lines.append(f"remote {host} {_tcp_port(data)} tcp")
+    if not lines:
+        lines.append(f"remote {host} {int(data.ovpn_remote_port)}")
+    return lines
 
 
 def _normalize_proto(proto: str) -> str:
@@ -43,14 +74,21 @@ def _normalize_proto(proto: str) -> str:
 def build_client_common_text(data: SiteSettingsData) -> str:
     """Generate client template body from structured site settings."""
     flavor = detect_flavor()
-    proto = _normalize_proto(data.ovpn_proto)
+    udp_on = _udp_enabled(data)
+    tcp_on = _tcp_enabled(data)
+    if udp_on and not tcp_on:
+        proto = "udp"
+    elif tcp_on and not udp_on:
+        proto = "tcp"
+    else:
+        proto = _normalize_proto(data.ovpn_proto) if data.ovpn_proto else "udp"
     lines: list[str] = ["client", "dev tun"]
 
     if data.ovpn_tun_mtu and data.ovpn_tun_mtu > 0:
         lines.append(f"tun-mtu {data.ovpn_tun_mtu}")
     if data.ovpn_mssfix and data.ovpn_mssfix > 0:
         lines.append(f"mssfix {data.ovpn_mssfix}")
-    if data.ovpn_tcp_nodelay:
+    if data.ovpn_tcp_nodelay and tcp_on:
         lines.append("tcp-nodelay")
 
     lines.append(f"proto {proto}")
@@ -124,7 +162,7 @@ def parse_client_common_text(text: str) -> dict:
     )
 
     remotes = re.findall(
-        r"(?im)^\s*remote\s+(\S+)\s+(\d+)\s*$",
+        r"(?im)^\s*remote\s+(\S+)\s+(\d+)(?:\s+(\S+))?\s*$",
         body,
     )
     remote_random = bool(re.search(r"(?im)^\s*remote-random\s*$", body))
@@ -174,7 +212,20 @@ def parse_client_common_text(text: str) -> dict:
     }
     if remotes:
         result["ovpn_remote_host"] = remotes[0][0]
-        ports = sorted({int(p) for _, p in remotes})
+        ports = sorted({int(p) for _, p, _proto in remotes})
+        protos = {(_proto or "").lower() for _h, _p, _proto in remotes}
+        result["ovpn_udp_enabled"] = not protos or "" in protos or any(
+            p.startswith("udp") for p in protos if p
+        )
+        result["ovpn_tcp_enabled"] = any(p.startswith("tcp") for p in protos if p)
+        if not result["ovpn_udp_enabled"] and not result["ovpn_tcp_enabled"]:
+            result["ovpn_udp_enabled"] = True
+        udp_ports = [int(p) for _h, p, proto in remotes if (proto or "").lower().startswith("udp")]
+        tcp_ports = [int(p) for _h, p, proto in remotes if (proto or "").lower().startswith("tcp")]
+        if udp_ports:
+            result["ovpn_udp_port"] = udp_ports[0]
+        if tcp_ports:
+            result["ovpn_tcp_port"] = tcp_ports[0]
         if remote_random and len(ports) > 1:
             result["ovpn_remote_mode"] = "remote_random"
             result["ovpn_remote_port_min"] = ports[0]
@@ -227,6 +278,10 @@ def load_ovpn_defaults_from_disk() -> dict:
             "ovpn_remote_port_min": 45000,
             "ovpn_remote_port_max": 45099,
             "ovpn_proto": settings.OPENVPN_PROTO or "udp",
+            "ovpn_udp_enabled": True,
+            "ovpn_tcp_enabled": True,
+            "ovpn_udp_port": 1194,
+            "ovpn_tcp_port": 1195,
             "ovpn_tun_mtu": None,
             "ovpn_mssfix": None,
             "ovpn_tcp_nodelay": False,
@@ -244,6 +299,10 @@ def load_ovpn_defaults_from_disk() -> dict:
         "ovpn_remote_port_min": 45000,
         "ovpn_remote_port_max": 45099,
         "ovpn_proto": settings.OPENVPN_PROTO,
+        "ovpn_udp_enabled": True,
+        "ovpn_tcp_enabled": True,
+        "ovpn_udp_port": 1194,
+        "ovpn_tcp_port": 1195,
         "ovpn_tun_mtu": 1400,
         "ovpn_mssfix": 1360,
         "ovpn_tcp_nodelay": True,

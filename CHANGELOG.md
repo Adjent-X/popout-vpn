@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.2.0-beta — 2026-09-15
+
+Beta installer + panel: WireGuard beside OpenVPN.
+
+- Installs WireGuard via [angristan/wireguard-install](https://github.com/angristan/wireguard-install) alongside Angristan OpenVPN
+- Concurrent OpenVPN UDP (`openvpn-server@udp`) and TCP (`openvpn-server@tcp`)
+- Server settings toggles enable/disable OpenVPN UDP, OpenVPN TCP, and WireGuard
+- Servers bind a private IP (`10.255.255.1` on dummy `popout-bind`); persisted iptables `-j DNAT --to-destination`
+- Config download prompts `.ovpn` (OpenVPN) or `.conf` (WireGuard); each seat gets both artifacts
+- WireGuard peer settings (endpoint, port, DNS, AllowedIPs, MTU, keepalive) in Server settings
+
 ## 0.1.0 — 2026-09-15
 
 Public preview.

@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
-from typing import Any
+from typing import Any, Literal
 
 from bson import ObjectId
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from fastapi.responses import PlainTextResponse
 
 from app.api.deps import get_current_admin, require_db, resolve_display_status, utcnow
@@ -26,8 +26,42 @@ from app.services.metrics_collector import CONNECTION_EVENTS_COLLECTION
 from app.services.openvpn import OpenVPNError, build_client, rebuild_ovpn, revoke_client
 from app.services.pki_import import import_pki_clients, list_orphan_pki_clients
 from app.services.warp_routing import WarpRoutingError, sync_warp_routing
+from app.services.wireguard import WireGuardError, add_peer, rebuild_client_conf, revoke_peer, wg_available
 
 router = APIRouter(prefix="/api/configs", tags=["configs"])
+
+ConfigDownloadFormat = Literal["ovpn", "wg"]
+
+
+def _try_add_wg_peer(client_name: str) -> tuple[str | None, str | None]:
+    if not wg_available():
+        return None, None
+    try:
+        body, ipv4 = add_peer(client_name)
+        return body, ipv4
+    except WireGuardError as exc:
+        import logging
+
+        logging.getLogger(__name__).warning("WireGuard peer for %s: %s", client_name, exc)
+        return None, None
+
+
+def _try_rebuild_wg(client_name: str) -> str | None:
+    if not wg_available():
+        return None
+    try:
+        return rebuild_client_conf(client_name)
+    except WireGuardError:
+        return None
+
+
+def _try_revoke_wg(client_name: str) -> None:
+    try:
+        revoke_peer(client_name)
+    except WireGuardError:
+        import logging
+
+        logging.getLogger(__name__).warning("WireGuard revoke failed for %s", client_name)
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -157,6 +191,7 @@ async def create_config(
         ) from exc
 
     now = utcnow()
+    wg_conf, wg_ipv4 = _try_add_wg_peer(built.client_name)
     doc = {
         "label": body.label.strip(),
         "client_name": built.client_name,
@@ -167,6 +202,7 @@ async def create_config(
         "cert_serial": built.cert_serial,
         "revoked_at": None,
         "warp_routing_enabled": False,
+        "wg_ipv4": wg_ipv4,
     }
     try:
         result = await db.client_configs.insert_one(doc)
@@ -175,11 +211,12 @@ async def create_config(
             await revoke_client(built.client_name)
         except OpenVPNError:
             pass
+        _try_revoke_wg(built.client_name)
         raise
 
     doc["_id"] = result.inserted_id
     base = _doc_to_response(doc)
-    return CreateConfigResponse(**base.model_dump(), ovpn=built.ovpn_content)
+    return CreateConfigResponse(**base.model_dump(), ovpn=built.ovpn_content, wg_conf=wg_conf)
 
 
 @router.get("", response_model=list[ClientConfigResponse])
@@ -245,6 +282,7 @@ async def import_configs(
 @router.get("/{config_id}/download")
 async def download_config(
     config_id: str,
+    file_format: ConfigDownloadFormat = Query(default="ovpn", alias="format"),
     admin: dict = Depends(get_current_admin),
     db=Depends(require_db),
 ) -> Response:
@@ -259,6 +297,20 @@ async def download_config(
         raise HTTPException(
             status_code=status.HTTP_410_GONE,
             detail="Config has been revoked",
+        )
+
+    if file_format == "wg":
+        body = _try_rebuild_wg(doc["client_name"])
+        if not body:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="WireGuard config is not available for this seat",
+            )
+        filename = f"{doc['client_name']}.conf"
+        return PlainTextResponse(
+            content=body,
+            media_type="application/x-wireguard-profile",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
     try:
@@ -314,6 +366,9 @@ async def reissue_config(
             detail="Failed to generate OpenVPN client certificate",
         ) from exc
 
+    _try_revoke_wg(doc["client_name"])
+    wg_conf, wg_ipv4 = _try_add_wg_peer(built.client_name)
+
     now = utcnow()
     expires_at = _as_utc(doc["expires_at"])
     if expires_at <= now:
@@ -326,6 +381,7 @@ async def reissue_config(
         "revoked_at": None,
         "expires_at": expires_at,
         "created_at": now,
+        "wg_ipv4": wg_ipv4,
     }
     try:
         await db.client_configs.update_one({"_id": doc["_id"]}, {"$set": updates})
@@ -334,11 +390,12 @@ async def reissue_config(
             await revoke_client(built.client_name)
         except OpenVPNError:
             pass
+        _try_revoke_wg(built.client_name)
         raise
 
     doc.update(updates)
     base = _doc_to_response(doc)
-    return CreateConfigResponse(**base.model_dump(), ovpn=built.ovpn_content)
+    return CreateConfigResponse(**base.model_dump(), ovpn=built.ovpn_content, wg_conf=wg_conf)
 
 
 @router.delete(
@@ -381,6 +438,8 @@ async def delete_config(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Failed to revoke OpenVPN client certificate",
         ) from exc
+
+    _try_revoke_wg(doc["client_name"])
 
     if doc.get("warp_routing_enabled"):
         try:

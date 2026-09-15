@@ -17,6 +17,7 @@ import {
   ApiError,
   createConfig,
   downloadOvpnText,
+  downloadWgText,
   type CreateConfigResponse,
 } from "@/lib/api";
 
@@ -102,26 +103,41 @@ export function CreateConfigDialog({
             <DialogHeader>
               <DialogTitle>VPN file ready</DialogTitle>
               <DialogDescription>
-                Access for <strong>{created.label}</strong> was created. Download
-                the file and send it to the person who needs VPN access.
+                Access for <strong>{created.label}</strong> was created. Choose
+                OpenVPN (<span className="font-mono">.ovpn</span>) or WireGuard
+                (<span className="font-mono">.conf</span>), then send the file
+                to the person who needs VPN access.
               </DialogDescription>
             </DialogHeader>
-            <DialogFooter className="gap-2 sm:justify-between">
+            <DialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => handleOpenChange(false)}
-              >
-                Done
-              </Button>
-              <Button
-                type="button"
-                className="brand-btn-gradient"
+                className="brand-btn-gradient w-full"
                 onClick={() =>
                   downloadOvpnText(`${created.client_name}.ovpn`, created.ovpn)
                 }
               >
-                Download .ovpn file
+                Download .ovpn (OpenVPN)
+              </Button>
+              {created.wg_conf ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="w-full"
+                  onClick={() =>
+                    downloadWgText(`${created.client_name}.conf`, created.wg_conf!)
+                  }
+                >
+                  Download .conf (WireGuard)
+                </Button>
+              ) : null}
+              <Button
+                type="button"
+                variant="ghost"
+                className="w-full"
+                onClick={() => handleOpenChange(false)}
+              >
+                Done
               </Button>
             </DialogFooter>
           </>

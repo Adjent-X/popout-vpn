@@ -69,6 +69,10 @@ function buildClientPreview(opts: {
   auth: string;
   verb: number;
   extra: string;
+  ovpnUdpEnabled: boolean;
+  ovpnTcpEnabled: boolean;
+  ovpnUdpPort: number;
+  ovpnTcpPort: number;
 }): string {
   const lines: string[] = ["client", "dev tun"];
   const mtu = Number(opts.tunMtu);
@@ -79,29 +83,44 @@ function buildClientPreview(opts: {
   if (opts.mssfix.trim() && Number.isFinite(mss) && mss > 0) {
     lines.push(`mssfix ${mss}`);
   }
-  if (opts.tcpNodelay) lines.push("tcp-nodelay");
-  lines.push(`proto ${opts.proto.trim() || "tcp4"}`);
+  if (opts.tcpNodelay && opts.ovpnTcpEnabled) lines.push("tcp-nodelay");
+  const proto =
+    opts.ovpnUdpEnabled && !opts.ovpnTcpEnabled
+      ? "udp"
+      : opts.ovpnTcpEnabled && !opts.ovpnUdpEnabled
+        ? "tcp"
+        : opts.proto.trim() || "udp";
+  lines.push(`proto ${proto}`);
   const host = opts.remoteHost.trim() || "vpn.example.com";
   if (opts.remoteMode === "remote_random") {
     const lo = Math.min(opts.remotePortMin, opts.remotePortMax);
     const hi = Math.max(opts.remotePortMin, opts.remotePortMax);
     lines.push("remote-random");
     const count = hi - lo + 1;
+    const emit = (port: number) => {
+      if (opts.ovpnUdpEnabled) lines.push(`remote ${host} ${port} udp`);
+      if (opts.ovpnTcpEnabled) lines.push(`remote ${host} ${port} tcp`);
+      if (!opts.ovpnUdpEnabled && !opts.ovpnTcpEnabled) {
+        lines.push(`remote ${host} ${port}`);
+      }
+    };
     if (count <= 8) {
-      for (let port = lo; port <= hi; port += 1) {
-        lines.push(`remote ${host} ${port}`);
-      }
+      for (let port = lo; port <= hi; port += 1) emit(port);
     } else {
-      for (let port = lo; port <= lo + 2; port += 1) {
-        lines.push(`remote ${host} ${port}`);
-      }
+      for (let port = lo; port <= lo + 2; port += 1) emit(port);
       lines.push(`# … ${count - 4} more remote lines …`);
-      for (let port = hi - 1; port <= hi; port += 1) {
-        lines.push(`remote ${host} ${port}`);
-      }
+      for (let port = hi - 1; port <= hi; port += 1) emit(port);
     }
   } else {
-    lines.push(`remote ${host} ${opts.remotePort || 1194}`);
+    if (opts.ovpnUdpEnabled) {
+      lines.push(`remote ${host} ${opts.ovpnUdpPort || 1194} udp`);
+    }
+    if (opts.ovpnTcpEnabled) {
+      lines.push(`remote ${host} ${opts.ovpnTcpPort || 1195} tcp`);
+    }
+    if (!opts.ovpnUdpEnabled && !opts.ovpnTcpEnabled) {
+      lines.push(`remote ${host} ${opts.remotePort || 1194}`);
+    }
   }
   lines.push("resolv-retry infinite");
   if (opts.bindMode === "nobind") lines.push("nobind");
@@ -177,6 +196,22 @@ export function SiteSettingsForm() {
   const [ovpnAuth, setOvpnAuth] = useState("SHA512");
   const [ovpnVerb, setOvpnVerb] = useState(3);
   const [ovpnExtra, setOvpnExtra] = useState("");
+  const [ovpnUdpEnabled, setOvpnUdpEnabled] = useState(true);
+  const [ovpnTcpEnabled, setOvpnTcpEnabled] = useState(true);
+  const [ovpnUdpPort, setOvpnUdpPort] = useState(1194);
+  const [ovpnTcpPort, setOvpnTcpPort] = useState(1195);
+  const [vpnBindIp, setVpnBindIp] = useState("10.255.255.1");
+  const [wgEnabled, setWgEnabled] = useState(true);
+  const [wgListenPort, setWgListenPort] = useState(51820);
+  const [wgEndpointHost, setWgEndpointHost] = useState("");
+  const [wgDns, setWgDns] = useState("1.1.1.1,1.0.0.1");
+  const [wgAllowedIps, setWgAllowedIps] = useState("0.0.0.0/0,::/0");
+  const [wgMtu, setWgMtu] = useState(1420);
+  const [wgKeepalive, setWgKeepalive] = useState(25);
+  const [wireguardInstalled, setWireguardInstalled] = useState(false);
+  const [vpnServersLive, setVpnServersLive] = useState<
+    SiteSettingsAdmin["vpn_servers"]
+  >({});
 
   const [wanIpLoggingEnabled, setWanIpLoggingEnabled] = useState(true);
   const [uniqueWanIpLimit, setUniqueWanIpLimit] = useState(3);
@@ -214,6 +249,10 @@ export function SiteSettingsForm() {
         auth: ovpnAuth,
         verb: ovpnVerb,
         extra: ovpnExtra,
+        ovpnUdpEnabled,
+        ovpnTcpEnabled,
+        ovpnUdpPort,
+        ovpnTcpPort,
       }),
     [
       ovpnRemoteHost,
@@ -230,6 +269,10 @@ export function SiteSettingsForm() {
       ovpnAuth,
       ovpnVerb,
       ovpnExtra,
+      ovpnUdpEnabled,
+      ovpnTcpEnabled,
+      ovpnUdpPort,
+      ovpnTcpPort,
     ],
   );
 
@@ -266,6 +309,20 @@ export function SiteSettingsForm() {
     setOvpnAuth(data.ovpn_auth);
     setOvpnVerb(data.ovpn_verb);
     setOvpnExtra(data.ovpn_extra || "");
+    setOvpnUdpEnabled(data.ovpn_udp_enabled ?? true);
+    setOvpnTcpEnabled(data.ovpn_tcp_enabled ?? true);
+    setOvpnUdpPort(data.ovpn_udp_port ?? 1194);
+    setOvpnTcpPort(data.ovpn_tcp_port ?? 1195);
+    setVpnBindIp(data.vpn_bind_ip || "10.255.255.1");
+    setWgEnabled(data.wg_enabled ?? true);
+    setWgListenPort(data.wg_listen_port ?? 51820);
+    setWgEndpointHost(data.wg_endpoint_host || "");
+    setWgDns(data.wg_dns || "1.1.1.1,1.0.0.1");
+    setWgAllowedIps(data.wg_allowed_ips || "0.0.0.0/0,::/0");
+    setWgMtu(data.wg_mtu ?? 1420);
+    setWgKeepalive(data.wg_keepalive ?? 25);
+    setWireguardInstalled(Boolean(data.wireguard_installed));
+    setVpnServersLive(data.vpn_servers || {});
     setWanIpLoggingEnabled(data.wan_ip_logging_enabled);
     setUniqueWanIpLimit(data.unique_wan_ip_limit);
     setUniqueWanIpWindowHours(data.unique_wan_ip_window_hours);
@@ -416,6 +473,18 @@ export function SiteSettingsForm() {
         ovpn_auth: ovpnAuth.trim(),
         ovpn_verb: ovpnVerb,
         ovpn_extra: ovpnExtra,
+        ovpn_udp_enabled: ovpnUdpEnabled,
+        ovpn_tcp_enabled: ovpnTcpEnabled,
+        ovpn_udp_port: ovpnUdpPort,
+        ovpn_tcp_port: ovpnTcpPort,
+        vpn_bind_ip: vpnBindIp.trim() || "10.255.255.1",
+        wg_enabled: wgEnabled,
+        wg_listen_port: wgListenPort,
+        wg_endpoint_host: wgEndpointHost.trim(),
+        wg_dns: wgDns.trim(),
+        wg_allowed_ips: wgAllowedIps.trim(),
+        wg_mtu: wgMtu,
+        wg_keepalive: wgKeepalive,
         wan_ip_logging_enabled: wanIpLoggingEnabled,
         unique_wan_ip_limit: uniqueWanIpLimit,
         unique_wan_ip_window_hours: uniqueWanIpWindowHours,
@@ -453,7 +522,7 @@ export function SiteSettingsForm() {
             ? " Client shaping disabled."
             : "";
       setMessage(
-        `Server settings saved. New and re-downloaded .ovpn files use this client template.${shapeNote}`,
+        `Server settings saved. New downloads use this OpenVPN template and WireGuard peer settings.${shapeNote}`,
       );
     } catch (err) {
       setError(
@@ -479,7 +548,7 @@ export function SiteSettingsForm() {
           Server settings
         </h1>
         <p className="dash-sub">
-          Branding, captcha, and the OpenVPN client template for .ovpn files.
+          Branding, VPN servers (OpenVPN UDP/TCP + WireGuard), and client templates.
         </p>
         <p className="mt-0.5 font-mono text-[11px] text-muted-foreground">
           Source: {meta.source}
@@ -492,6 +561,163 @@ export function SiteSettingsForm() {
         onSubmit={onSave}
         className="auth-glow-border relative max-w-3xl space-y-4 rounded-xl bg-card/90 p-3 pb-20 sm:space-y-5 sm:p-5 sm:pb-5"
       >
+        <section className="space-y-3">
+          <h2 className="text-sm font-semibold tracking-wide text-foreground">
+            VPN servers
+          </h2>
+          <p className="text-xs text-muted-foreground">
+            OpenVPN UDP and TCP run at the same time. Each process binds the
+            private IP below; persisted iptables NAT uses{" "}
+            <span className="font-mono">-j DNAT --to-destination</span>.
+            Disable a server to stop its unit and drop its DNAT rules.
+          </p>
+          <div className="space-y-2">
+            <Label htmlFor="vpn_bind_ip">Bind IP (private)</Label>
+            <Input
+              id="vpn_bind_ip"
+              value={vpnBindIp}
+              onChange={(e) => setVpnBindIp(e.target.value)}
+              className="h-9 font-mono text-sm"
+              required
+            />
+            <p className="font-mono text-[11px] text-muted-foreground">
+              Live bind {vpnServersLive.bind_ip || vpnBindIp}
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-3">
+            <label className="flex flex-col gap-2 rounded-lg border border-border/70 p-3 text-sm">
+              <span className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={ovpnUdpEnabled}
+                    onChange={(e) => setOvpnUdpEnabled(e.target.checked)}
+                    className="size-4 rounded border-input"
+                  />
+                  OpenVPN UDP
+                </span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {vpnServersLive.ovpn_udp?.active ? "active" : "stopped"}
+                </span>
+              </span>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={ovpnUdpPort}
+                onChange={(e) => setOvpnUdpPort(Number(e.target.value) || 1)}
+                className="h-9 font-mono text-sm"
+                disabled={!ovpnUdpEnabled}
+              />
+            </label>
+            <label className="flex flex-col gap-2 rounded-lg border border-border/70 p-3 text-sm">
+              <span className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={ovpnTcpEnabled}
+                    onChange={(e) => setOvpnTcpEnabled(e.target.checked)}
+                    className="size-4 rounded border-input"
+                  />
+                  OpenVPN TCP
+                </span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {vpnServersLive.ovpn_tcp?.active ? "active" : "stopped"}
+                </span>
+              </span>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={ovpnTcpPort}
+                onChange={(e) => setOvpnTcpPort(Number(e.target.value) || 1)}
+                className="h-9 font-mono text-sm"
+                disabled={!ovpnTcpEnabled}
+              />
+            </label>
+            <label className="flex flex-col gap-2 rounded-lg border border-border/70 p-3 text-sm">
+              <span className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={wgEnabled}
+                    onChange={(e) => setWgEnabled(e.target.checked)}
+                    className="size-4 rounded border-input"
+                    disabled={!wireguardInstalled && !wgEnabled}
+                  />
+                  WireGuard
+                </span>
+                <span className="font-mono text-[11px] text-muted-foreground">
+                  {vpnServersLive.wireguard?.active ? "active" : "stopped"}
+                </span>
+              </span>
+              <Input
+                type="number"
+                min={1}
+                max={65535}
+                value={wgListenPort}
+                onChange={(e) => setWgListenPort(Number(e.target.value) || 1)}
+                className="h-9 font-mono text-sm"
+                disabled={!wgEnabled}
+              />
+            </label>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="wg_endpoint">WireGuard endpoint host</Label>
+              <Input
+                id="wg_endpoint"
+                value={wgEndpointHost}
+                onChange={(e) => setWgEndpointHost(e.target.value)}
+                className="h-9 font-mono text-sm"
+                placeholder="Same as OpenVPN remote host if blank"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wg_dns">WireGuard DNS</Label>
+              <Input
+                id="wg_dns"
+                value={wgDns}
+                onChange={(e) => setWgDns(e.target.value)}
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label htmlFor="wg_allowed">WireGuard AllowedIPs</Label>
+              <Input
+                id="wg_allowed"
+                value={wgAllowedIps}
+                onChange={(e) => setWgAllowedIps(e.target.value)}
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wg_mtu">WireGuard MTU</Label>
+              <Input
+                id="wg_mtu"
+                type="number"
+                min={576}
+                max={9000}
+                value={wgMtu}
+                onChange={(e) => setWgMtu(Number(e.target.value) || 1420)}
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wg_keepalive">PersistentKeepalive</Label>
+              <Input
+                id="wg_keepalive"
+                type="number"
+                min={0}
+                max={600}
+                value={wgKeepalive}
+                onChange={(e) => setWgKeepalive(Number(e.target.value) || 0)}
+                className="h-9 font-mono text-sm"
+              />
+            </div>
+          </div>
+        </section>
+
         <section className="space-y-3">
           <h2 className="text-sm font-semibold tracking-wide text-foreground">
             Branding
@@ -577,8 +803,11 @@ export function SiteSettingsForm() {
 
         <details className="dash-section space-y-3">
           <summary>Client config template</summary>
-          <p className="text-xs text-muted-foreground">Static header written into every issued .ovpn (before certs). Maps
-              to Nyr&apos;s{" "}
+          <p className="text-xs text-muted-foreground">
+            Static header written into every issued .ovpn (before certs). Dual
+            OpenVPN remotes are emitted as{" "}
+            <span className="font-mono text-xs">remote host port proto</span>{" "}
+            for UDP and TCP. Maps to Nyr&apos;s{" "}
               <span className="font-mono text-xs">client-common.txt</span> or
               Angristan&apos;s{" "}
               <span className="font-mono text-xs">client-template.txt</span>{" "}

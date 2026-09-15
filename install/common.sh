@@ -8,6 +8,11 @@ POPOUT_LOG_DIR="${POPOUT_LOG_DIR:-/var/log/popout-vpn}"
 POPOUT_CRED_FILE="${POPOUT_CRED_FILE:-/root/popout-vpn-credentials.txt}"
 POPOUT_STATE="${POPOUT_STATE:-${POPOUT_ETC}/install.state}"
 ANGRISTAN_INSTALL_URL="${ANGRISTAN_INSTALL_URL:-https://raw.githubusercontent.com/angristan/openvpn-install/master/openvpn-install.sh}"
+ANGRISTAN_WG_INSTALL_URL="${ANGRISTAN_WG_INSTALL_URL:-https://raw.githubusercontent.com/angristan/wireguard-install/master/wireguard-install.sh}"
+POPOUT_BIND_IP="${POPOUT_BIND_IP:-10.255.255.1}"
+POPOUT_BIND_IFACE="${POPOUT_BIND_IFACE:-popout-bind}"
+OVPN_UDP_PORT="${OVPN_UDP_PORT:-1194}"
+OVPN_TCP_PORT="${OVPN_TCP_PORT:-1195}"
 
 if [[ -t 1 ]]; then
   C_RESET=$'\033[0m'
@@ -39,7 +44,7 @@ popout_version() {
     head -n1 "${POPOUT_SRC}/VERSION" | tr -d '\r'
     return
   fi
-  echo "0.1.0"
+  echo "0.2.0-beta"
 }
 
 popout_github_slug() {

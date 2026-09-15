@@ -78,7 +78,10 @@ export type ActiveSession = {
 
 export type CreateConfigResponse = ClientConfig & {
   ovpn: string;
+  wg_conf?: string | null;
 };
+
+export type VpnConfigFormat = "ovpn" | "wg";
 
 export class ApiError extends Error {
   status: number;
@@ -386,9 +389,10 @@ export async function reissueConfig(id: string): Promise<CreateConfigResponse> {
 export async function downloadConfigFile(
   id: string,
   filename: string,
+  format: VpnConfigFormat = "ovpn",
 ): Promise<void> {
   const res = await apiFetch<Response>(
-    `/api/configs/${id}/download`,
+    `/api/configs/${id}/download?format=${format}`,
     {},
     { raw: true },
   );
@@ -396,7 +400,23 @@ export async function downloadConfigFile(
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   a.href = url;
-  a.download = filename.endsWith(".ovpn") ? filename : `${filename}.ovpn`;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadTextFile(
+  filename: string,
+  content: string,
+  mime = "application/octet-stream",
+): void {
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
@@ -404,15 +424,13 @@ export async function downloadConfigFile(
 }
 
 export function downloadOvpnText(filename: string, content: string): void {
-  const blob = new Blob([content], { type: "application/x-openvpn-profile" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename.endsWith(".ovpn") ? filename : `${filename}.ovpn`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
+  const name = filename.endsWith(".ovpn") ? filename : `${filename}.ovpn`;
+  downloadTextFile(name, content, "application/x-openvpn-profile");
+}
+
+export function downloadWgText(filename: string, content: string): void {
+  const name = filename.endsWith(".conf") ? filename : `${filename}.conf`;
+  downloadTextFile(name, content, "application/x-wireguard-profile");
 }
 
 export async function fetchMe(): Promise<AdminPublic> {
@@ -561,6 +579,31 @@ export type SiteSettingsAdmin = {
   ovpn_remote_port_min: number;
   ovpn_remote_port_max: number;
   ovpn_proto: string;
+  ovpn_udp_enabled: boolean;
+  ovpn_tcp_enabled: boolean;
+  ovpn_udp_port: number;
+  ovpn_tcp_port: number;
+  vpn_bind_ip: string;
+  wg_enabled: boolean;
+  wg_listen_port: number;
+  wg_endpoint_host: string;
+  wg_dns: string;
+  wg_allowed_ips: string;
+  wg_mtu: number;
+  wg_keepalive: number;
+  wireguard_installed: boolean;
+  vpn_servers: {
+    bind_ip?: string;
+    ovpn_udp?: { enabled: boolean; active: boolean; unit: string; port: number };
+    ovpn_tcp?: { enabled: boolean; active: boolean; unit: string; port: number };
+    wireguard?: {
+      enabled: boolean;
+      active: boolean;
+      unit: string;
+      port: number;
+      installed?: boolean;
+    };
+  };
   ovpn_tun_mtu: number | null;
   ovpn_mssfix: number | null;
   ovpn_tcp_nodelay: boolean;
@@ -613,6 +656,18 @@ export type UpdateSiteSettingsPayload = {
   ovpn_remote_port_min?: number;
   ovpn_remote_port_max?: number;
   ovpn_proto?: string;
+  ovpn_udp_enabled?: boolean;
+  ovpn_tcp_enabled?: boolean;
+  ovpn_udp_port?: number;
+  ovpn_tcp_port?: number;
+  vpn_bind_ip?: string;
+  wg_enabled?: boolean;
+  wg_listen_port?: number;
+  wg_endpoint_host?: string;
+  wg_dns?: string;
+  wg_allowed_ips?: string;
+  wg_mtu?: number;
+  wg_keepalive?: number;
   ovpn_tun_mtu?: number | null;
   ovpn_mssfix?: number | null;
   ovpn_tcp_nodelay?: boolean;

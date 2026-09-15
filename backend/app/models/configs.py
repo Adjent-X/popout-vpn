@@ -59,6 +59,7 @@ class ClientConfigResponse(BaseModel):
 
 class CreateConfigResponse(ClientConfigResponse):
     ovpn: str
+    wg_conf: str | None = None
 
 
 class UpdateWanLoggingRequest(BaseModel):

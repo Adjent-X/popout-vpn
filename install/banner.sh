@@ -22,8 +22,8 @@ print_install_banner() {
             |_|
 ART
   echo "${C_RESET}"
-  echo "  ${C_BOLD}Popout VPN${C_RESET}  —  all-in-one OpenVPN suite"
-  echo "  ${C_DIM}Open-source control plane + Angristan OpenVPN + optional Cloudflare edge${C_RESET}"
+  echo "  ${C_BOLD}Popout VPN${C_RESET}  —  OpenVPN + WireGuard control plane"
+  echo "  ${C_DIM}Angristan OpenVPN (UDP+TCP) + WireGuard, private bind IP, DNAT, optional Cloudflare${C_RESET}"
   echo
   echo "  ${C_GREEN}[✓] Installation complete${C_RESET}"
   echo
@@ -31,9 +31,10 @@ ART
   echo "  Repository  : ${url}"
   echo
   echo "  ${C_BOLD}What you just installed${C_RESET}"
-  echo "    An OpenVPN server (Angristan) plus a web admin that issues client"
-  echo "    configs, shows live connections, optional attack capture, and"
-  echo "    multiport NAT redirect (ipset ${EPHEMERAL_SET:-ephemeral-ports})."
+  echo "    OpenVPN UDP + TCP (Angristan), WireGuard (Angristan), a web admin"
+  echo "    that issues .ovpn / .conf files, and persisted iptables DNAT"
+  echo "    (--to-destination ${POPOUT_BIND_IP:-10.255.255.1}) plus ipset"
+  echo "    ${EPHEMERAL_SET:-ephemeral-ports}."
   echo
   echo "  ${C_BOLD}Admin portal${C_RESET}"
   echo "    VPN clients : ${C_CYAN}http://${tun}/${C_RESET}"

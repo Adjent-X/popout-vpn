@@ -37,7 +37,19 @@ class SiteSettingsData(BaseModel):
     ovpn_remote_port: int = 1194
     ovpn_remote_port_min: int = 45000
     ovpn_remote_port_max: int = 45099
-    ovpn_proto: str = "tcp4"
+    ovpn_proto: str = "udp"
+    ovpn_udp_enabled: bool = True
+    ovpn_tcp_enabled: bool = True
+    ovpn_udp_port: int = 1194
+    ovpn_tcp_port: int = 1195
+    vpn_bind_ip: str = "10.255.255.1"
+    wg_enabled: bool = True
+    wg_listen_port: int = 51820
+    wg_endpoint_host: str = ""
+    wg_dns: str = "1.1.1.1,1.0.0.1"
+    wg_allowed_ips: str = "0.0.0.0/0,::/0"
+    wg_mtu: int = 1420
+    wg_keepalive: int = 25
     ovpn_tun_mtu: int | None = 1400
     ovpn_mssfix: int | None = 1360
     ovpn_tcp_nodelay: bool = True
@@ -108,6 +120,20 @@ class SiteSettingsAdminResponse(BaseModel):
     ovpn_remote_port_min: int
     ovpn_remote_port_max: int
     ovpn_proto: str
+    ovpn_udp_enabled: bool = True
+    ovpn_tcp_enabled: bool = True
+    ovpn_udp_port: int = 1194
+    ovpn_tcp_port: int = 1195
+    vpn_bind_ip: str = "10.255.255.1"
+    wg_enabled: bool = True
+    wg_listen_port: int = 51820
+    wg_endpoint_host: str = ""
+    wg_dns: str = "1.1.1.1,1.0.0.1"
+    wg_allowed_ips: str = "0.0.0.0/0,::/0"
+    wg_mtu: int = 1420
+    wg_keepalive: int = 25
+    wireguard_installed: bool = False
+    vpn_servers: dict = Field(default_factory=dict)
     ovpn_tun_mtu: int | None
     ovpn_mssfix: int | None
     ovpn_tcp_nodelay: bool
@@ -166,6 +192,18 @@ class UpdateSiteSettingsRequest(BaseModel):
     ovpn_remote_port_min: int | None = Field(default=None, ge=1, le=65535)
     ovpn_remote_port_max: int | None = Field(default=None, ge=1, le=65535)
     ovpn_proto: str | None = Field(default=None, max_length=32)
+    ovpn_udp_enabled: bool | None = None
+    ovpn_tcp_enabled: bool | None = None
+    ovpn_udp_port: int | None = Field(default=None, ge=1, le=65535)
+    ovpn_tcp_port: int | None = Field(default=None, ge=1, le=65535)
+    vpn_bind_ip: str | None = Field(default=None, min_length=7, max_length=45)
+    wg_enabled: bool | None = None
+    wg_listen_port: int | None = Field(default=None, ge=1, le=65535)
+    wg_endpoint_host: str | None = Field(default=None, max_length=255)
+    wg_dns: str | None = Field(default=None, max_length=255)
+    wg_allowed_ips: str | None = Field(default=None, max_length=512)
+    wg_mtu: int | None = Field(default=None, ge=576, le=9000)
+    wg_keepalive: int | None = Field(default=None, ge=0, le=600)
     ovpn_tun_mtu: int | None = Field(default=None, ge=0, le=9000)
     ovpn_mssfix: int | None = Field(default=None, ge=0, le=9000)
     ovpn_tcp_nodelay: bool | None = None

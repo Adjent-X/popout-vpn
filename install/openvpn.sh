@@ -71,6 +71,83 @@ ensure_openvpn() {
   ok "OpenVPN ready (${proto}/${port})"
 }
 
+# Split the Angristan/Nyr server into concurrent UDP + TCP instances bound to BIND_IP.
+configure_dual_openvpn() {
+  local src bind udp_port tcp_port
+  src=""
+  for candidate in /etc/openvpn/server/server.conf /etc/openvpn/server.conf; do
+    if [[ -f "$candidate" ]]; then
+      src="$candidate"
+      break
+    fi
+  done
+  [[ -n "$src" ]] || die "No OpenVPN server.conf to clone into udp/tcp instances"
+  bind="${POPOUT_BIND_IP:-10.255.255.1}"
+  udp_port="${OVPN_UDP_PORT:-1194}"
+  tcp_port="${OVPN_TCP_PORT:-1195}"
+  mkdir -p /etc/openvpn/server
+
+  python3 - "$src" "$bind" "$udp_port" "$tcp_port" <<'PY'
+import pathlib, re, sys
+
+src, bind, udp_port, tcp_port = sys.argv[1:5]
+raw = pathlib.Path(src).read_text(encoding="utf-8", errors="replace")
+
+
+def rewrite(text: str, *, proto: str, port: str, dev: str, subnet: str, status: str, ipp: str) -> str:
+    def set_line(body: str, key: str, value: str) -> str:
+        pat = re.compile(rf"(?m)^(?:#\s*)?{re.escape(key)}\s+.*$")
+        if pat.search(body):
+            return pat.sub(f"{key} {value}", body, count=1)
+        return body.rstrip() + f"\n{key} {value}\n"
+
+    body = text
+    body = set_line(body, "port", port)
+    body = set_line(body, "proto", proto)
+    body = set_line(body, "dev", dev)
+    body = set_line(body, "server", f"{subnet} 255.255.255.0")
+    body = set_line(body, "local", bind)
+    body = set_line(body, "status", status)
+    body = set_line(body, "ifconfig-pool-persist", ipp)
+    if proto.startswith("tcp"):
+        body = re.sub(r"(?m)^explicit-exit-notify\s+.*\n?", "", body)
+    return body
+
+
+base = pathlib.Path("/etc/openvpn/server")
+udp = rewrite(
+    raw,
+    proto="udp",
+    port=udp_port,
+    dev="tun0",
+    subnet="10.8.0.0",
+    status="/etc/openvpn/server/openvpn-status-udp.log",
+    ipp="/etc/openvpn/server/ipp-udp.txt",
+)
+tcp = rewrite(
+    raw,
+    proto="tcp",
+    port=tcp_port,
+    dev="tun1",
+    subnet="10.9.0.0",
+    status="/etc/openvpn/server/openvpn-status-tcp.log",
+    ipp="/etc/openvpn/server/ipp-tcp.txt",
+)
+(base / "udp.conf").write_text(udp, encoding="utf-8")
+(base / "tcp.conf").write_text(tcp, encoding="utf-8")
+print("wrote", base / "udp.conf", "and", base / "tcp.conf")
+PY
+
+  # Original single instance would clash on port / tun.
+  systemctl disable --now openvpn-server@server.service openvpn@server.service 2>/dev/null || true
+  systemctl enable --now openvpn-server@udp.service openvpn-server@tcp.service
+  save_state OVPN_UDP_PORT "$udp_port"
+  save_state OVPN_TCP_PORT "$tcp_port"
+  save_state POPOUT_BIND_IP "$bind"
+  ok "OpenVPN UDP :${udp_port} and TCP :${tcp_port} bound to ${bind}"
+}
+
+
 install_openvpn_hooks() {
   mkdir -p /etc/openvpn/server /usr/local/sbin /var/log/openvpn
   if [[ -f "${POPOUT_SRC}/config/openvpn/client-connect.sh" ]]; then

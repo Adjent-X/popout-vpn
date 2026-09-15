@@ -64,12 +64,6 @@ write_app_env() {
     cf_url=""
     api_url=""
   fi
-  local proto
-  proto="${OVPN_PROTO:-udp}"
-  case "$proto" in
-    tcp*) proto="tcp4" ;;
-    *) proto="udp4" ;;
-  esac
 
   umask 077
   mkdir -p "${POPOUT_PANEL_ROOT}/config"
@@ -123,13 +117,13 @@ OPENVPN_CA_CERT_PATH=/etc/openvpn/server/ca.crt
 OPENVPN_TLS_CRYPT_KEY_PATH=/etc/openvpn/server/tc.key
 OPENVPN_TLS_CRYPT_V2_KEY_PATH=
 OPENVPN_SERVER_HOST=${WAN_IP:-vpn.example.com}
-OPENVPN_SERVER_PORT=${OVPN_PORT:-1194}
-OPENVPN_PROTO=${proto}
+OPENVPN_SERVER_PORT=${OVPN_UDP_PORT:-${OVPN_PORT:-1194}}
+OPENVPN_PROTO=udp
 OPENVPN_CRL_PATH=/etc/openvpn/server/crl.pem
 OPENVPN_CRL_OWNER=nobody
 OPENVPN_CRL_GROUP=nogroup
-OPENVPN_STATUS_PATH=/etc/openvpn/server/openvpn-status.log
-OPENVPN_IPP_PATH=/etc/openvpn/server/ipp.txt
+OPENVPN_STATUS_PATH=/etc/openvpn/server/openvpn-status-udp.log
+OPENVPN_IPP_PATH=/etc/openvpn/server/ipp-udp.txt
 OPENVPN_CLIENT_EVENTS_PATH=/var/log/openvpn/client-events.log
 
 ATTACK_PCAP_DIR=${POPOUT_LOG_DIR}/captures

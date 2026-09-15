@@ -13,6 +13,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ConnectionLogsDialog } from "@/components/dashboard/connection-logs-dialog";
 import { CreateConfigDialog } from "@/components/dashboard/create-config-dialog";
 import {
+  DownloadConfigDialog,
+  type DownloadConfigTarget,
+} from "@/components/dashboard/download-config-dialog";
+import {
   ConfigActionDialog,
   type ConfigActionMode,
 } from "@/components/dashboard/delete-config-dialog";
@@ -30,8 +34,6 @@ import { Input } from "@/components/ui/input";
 import {
   ApiError,
   deleteConfig,
-  downloadConfigFile,
-  downloadOvpnText,
   fetchMe,
   importConfigs,
   listConfigs,
@@ -258,7 +260,7 @@ function ConfigActionsMenu({
             {!revoked && (
               <Menu.Item className={menuItemClass} onClick={onDownload}>
                 <Download className="size-3.5 opacity-70" />
-                Download .ovpn
+                Download config
               </Menu.Item>
             )}
             <Menu.Separator className="my-1 h-px bg-border/70" />
@@ -313,6 +315,8 @@ export function ConfigsDashboard() {
   );
   const [actionError, setActionError] = useState<string | null>(null);
   const [logsConfig, setLogsConfig] = useState<ClientConfig | null>(null);
+  const [downloadTarget, setDownloadTarget] =
+    useState<DownloadConfigTarget | null>(null);
   const [wanBusyId, setWanBusyId] = useState<string | null>(null);
   const [warpBusyId, setWarpBusyId] = useState<string | null>(null);
   const [importBusy, setImportBusy] = useState(false);
@@ -444,17 +448,12 @@ export function ConfigsDashboard() {
     void refreshProfile();
   }
 
-  async function onDownload(config: ClientConfig) {
+  function onDownload(config: ClientConfig) {
     setActionError(null);
-    try {
-      await downloadConfigFile(config.id, `${config.client_name}.ovpn`);
-    } catch (err) {
-      setActionError(
-        err instanceof ApiError
-          ? err.message
-          : "Download failed. Try again.",
-      );
-    }
+    setDownloadTarget({
+      clientName: config.client_name,
+      configId: config.id,
+    });
   }
 
   async function onImportFromServer() {
@@ -492,10 +491,15 @@ export function ConfigsDashboard() {
     try {
       if (mode === "reissue") {
         const result = await reissueConfig(config.id);
-        const { ovpn, ...row } = result;
+        const { ovpn, wg_conf, ...row } = result;
         setConfigs((prev) => prev.map((c) => (c.id === row.id ? row : c)));
-        downloadOvpnText(`${row.client_name}.ovpn`, ovpn);
         setPendingAction(null);
+        setDownloadTarget({
+          clientName: row.client_name,
+          ovpn,
+          wgConf: wg_conf,
+          wireguardInstalled: Boolean(wg_conf),
+        });
         await refreshProfile();
         return;
       }
@@ -1014,6 +1018,13 @@ export function ConfigsDashboard() {
         open={createOpen}
         onOpenChange={setCreateOpen}
         onCreated={onCreated}
+      />
+
+      <DownloadConfigDialog
+        target={downloadTarget}
+        onOpenChange={(open) => {
+          if (!open) setDownloadTarget(null);
+        }}
       />
 
       <ConnectionLogsDialog

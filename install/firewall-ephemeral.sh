@@ -44,10 +44,9 @@ setup_ephemeral_ports() {
     *) ovpn_proto="udp" ;;
   esac
 
-  info "Initializing ipset ${EPHEMERAL_SET} (${EPHEMERAL_PORT_MIN}-${EPHEMERAL_PORT_MAX}) → REDIRECT ${ovpn_proto}/${ovpn_port}"
+  info "Initializing ipset ${EPHEMERAL_SET} (${EPHEMERAL_PORT_MIN}-${EPHEMERAL_PORT_MAX}) for DNAT remote-random"
 
   ipset create "${EPHEMERAL_SET}" bitmap:port range 0-65535 -exist
-  # bitmap:port supports adding a range as from-to on recent ipset
   if ! ipset add "${EPHEMERAL_SET}" "${EPHEMERAL_PORT_MIN}-${EPHEMERAL_PORT_MAX}" -exist 2>/dev/null; then
     local p
     for p in $(seq "${EPHEMERAL_PORT_MIN}" "${EPHEMERAL_PORT_MAX}"); do
@@ -55,35 +54,26 @@ setup_ephemeral_ports() {
     done
   fi
 
-  # Idempotent NAT REDIRECT for both TCP and UDP so remote-random clients work
-  # regardless of which protocol the .ovpn lists.
-  _ensure_redirect tcp "$ovpn_port"
-  _ensure_redirect udp "$ovpn_port"
-
   mkdir -p /etc/iptables
   ipset save > /etc/iptables/ipsets
-  if need_cmd iptables-save; then
-    iptables-save > /etc/iptables/rules.v4
-  fi
 
   install_ephemeral_units "$ovpn_port"
+
+  # Forwarding is iptables DNAT --to-destination (popout-dnat.service), not REDIRECT.
+  if [[ -x /usr/local/sbin/popout-dnat.sh ]]; then
+    /usr/local/sbin/popout-dnat.sh || true
+  fi
 
   save_state EPHEMERAL_SET "$EPHEMERAL_SET"
   save_state EPHEMERAL_PORT_MIN "$EPHEMERAL_PORT_MIN"
   save_state EPHEMERAL_PORT_MAX "$EPHEMERAL_PORT_MAX"
   save_state OVPN_PORT "$ovpn_port"
-  ok "ephemeral-ports ipset + NAT REDIRECT → ${ovpn_port}"
+  ok "ephemeral-ports ipset ready (DNAT by popout-dnat)"
 }
 
 _ensure_redirect() {
-  local proto="$1"
-  local dest="$2"
-  if iptables -t nat -C PREROUTING -p "$proto" -m set --match-set "${EPHEMERAL_SET}" dst \
-      -j REDIRECT --to-ports "$dest" 2>/dev/null; then
-    return
-  fi
-  iptables -t nat -A PREROUTING -p "$proto" -m set --match-set "${EPHEMERAL_SET}" dst \
-    -j REDIRECT --to-ports "$dest"
+  # Legacy helper kept so older units that still call it do not explode.
+  return 0
 }
 
 install_ephemeral_units() {
@@ -94,7 +84,6 @@ set -euo pipefail
 SET="${EPHEMERAL_SET}"
 MIN="${EPHEMERAL_PORT_MIN}"
 MAX="${EPHEMERAL_PORT_MAX}"
-DEST="${dest}"
 ipset create "\$SET" bitmap:port range 0-65535 -exist
 if ! ipset add "\$SET" "\$MIN-\$MAX" -exist 2>/dev/null; then
   for p in \$(seq "\$MIN" "\$MAX"); do ipset add "\$SET" "\$p" -exist; done
@@ -102,11 +91,10 @@ fi
 if [[ -f /etc/iptables/ipsets ]]; then
   ipset restore -exist < /etc/iptables/ipsets || true
 fi
-for proto in tcp udp; do
-  iptables -t nat -C PREROUTING -p "\$proto" -m set --match-set "\$SET" dst -j REDIRECT --to-ports "\$DEST" 2>/dev/null \\
-    || iptables -t nat -A PREROUTING -p "\$proto" -m set --match-set "\$SET" dst -j REDIRECT --to-ports "\$DEST"
-done
 ipset save > /etc/iptables/ipsets
+if [[ -x /usr/local/sbin/popout-dnat.sh ]]; then
+  /usr/local/sbin/popout-dnat.sh || true
+fi
 EOF
   chmod 755 /usr/local/sbin/popout-ephemeral-ports.sh
 

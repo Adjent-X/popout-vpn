@@ -121,7 +121,7 @@ PY
 cmd_status() {
   echo "Popout VPN $(popout_version) — service status"
   echo
-  for unit in popout-backend popout-frontend popout-attacks popout-ephemeral-ports mongod nginx openvpn-server@server; do
+  for unit in popout-backend popout-frontend popout-attacks popout-ephemeral-ports popout-dnat mongod nginx openvpn-server@udp openvpn-server@tcp wg-quick@wg0; do
     if systemctl list-unit-files "${unit}.service" >/dev/null 2>&1 \
       || systemctl status "${unit}" >/dev/null 2>&1; then
       local state

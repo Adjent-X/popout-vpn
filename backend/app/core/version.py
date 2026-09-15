@@ -28,7 +28,7 @@ def app_version() -> str:
     file_ver = _read_version_file()
     if file_ver:
         return file_ver
-    return (get_settings().APP_VERSION or "0.1.0").strip() or "0.1.0"
+    return (get_settings().APP_VERSION or "0.2.0-beta").strip() or "0.2.0-beta"
 
 
 def github_repo_slug() -> str:

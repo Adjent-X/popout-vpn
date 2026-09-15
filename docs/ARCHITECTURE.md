@@ -49,4 +49,4 @@ iptables -t nat -A PREROUTING -p tcp -m set --match-set ephemeral-ports dst \
 
 ## Auth
 
-First admin is seeded from `BOOTSTRAP_ADMIN_*` only when the `admins` collection is empty. JWT access + refresh; optional Cloudflare Turnstile; optional public password gate for the Cloudflare hostname.
+First admin is seeded from `BOOTSTRAP_ADMIN_*` only when the `admins` collection is empty. JWT access + refresh; optional Cloudflare Turnstile; optional public access code for the Cloudflare hostname (generated at install when Cloudflare is enabled).

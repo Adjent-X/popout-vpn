@@ -23,7 +23,7 @@ from app.api.v1 import router as v1_router
 from app.core.config import get_settings
 from app.core.hardening import validate_settings
 from app.db import close_db, connect_db, ensure_indexes
-from app.services.bootstrap import ensure_bootstrap_admin
+from app.services.bootstrap import ensure_bootstrap_admin, ensure_bootstrap_public_gate
 from app.services.scheduler import start_scheduler, stop_scheduler
 from app.services.site_settings import ensure_site_settings_seeded
 
@@ -40,6 +40,10 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
         await ensure_indexes()
         await ensure_site_settings_seeded()
         await ensure_bootstrap_admin()
+        try:
+            await ensure_bootstrap_public_gate()
+        except Exception:
+            logger.exception("Could not seed public access code")
         logger.info("MongoDB connected; indexes ensured")
         try:
             from app.db import get_db

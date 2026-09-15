@@ -60,7 +60,7 @@ prompt_cloudflare() {
   echo "  with Zone permissions (see docs/CLOUDFLARE.md):"
   echo "    DNS Edit, Zone Settings Edit, Zone Read, Cache Purge,"
   echo "    Firewall Services Edit, Cache Rules Edit (or Account Filter Lists)."
-  echo "  A Global API Key + account email also works (legacy “zone API key”)."
+  echo "  A Global API Key + account email also works (legacy zone API key)."
   echo
   local kind
   kind="$(ask "Credential type: token or key? [token/key]" "token")"

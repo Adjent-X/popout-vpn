@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     BOOTSTRAP_ADMIN_EMAIL: str = ""
     BOOTSTRAP_ADMIN_PASSWORD: str = ""
 
+    # Public Cloudflare hostname gate (seeded once when the hash is empty)
+    PUBLIC_GATE_PASSWORD: str = ""
+
     # OpenVPN / easy-rsa (Nyr or Angristan under /etc/openvpn/server/)
     # auto | nyr | angristan — auto detects from client-template.txt / tls-crypt-v2 / tc.key
     OPENVPN_FLAVOR: str = "auto"

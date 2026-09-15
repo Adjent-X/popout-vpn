@@ -9,19 +9,25 @@ jobs:
   shell:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: shellcheck
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
-          shellcheck -x install.sh popout-vpn.sh install/*.sh scripts/*.sh || true
-          # Fail on installer entry points even if helpers warn
-          shellcheck install.sh popout-vpn.sh
+          # Entry points use -x so sourced install/*.sh helpers are followed.
+          # Helper libraries are not linted as standalone programs.
+          shellcheck -x install.sh popout-vpn.sh
+          shellcheck -x \
+            scripts/*.sh \
+            config/sync-public-gate.sh \
+            config/vpn-shape-10.8.sh \
+            config/openvpn/*.sh \
+            monitor/attacks.sh
 
   python:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"

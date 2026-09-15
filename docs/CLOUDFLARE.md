@@ -14,7 +14,7 @@ If you say **yes**, you will be asked for:
 2. **Admin hostname** — default `admin.example.com`
 3. **API token** (recommended) **or** Global API Key + account email
 
-The installer then **auto-tunes that zone** so the hostname works for this app: DNS, SSL, cache, WAF, and optional origin lock.
+The installer then **auto-tunes that zone** so the hostname works for this app: DNS, SSL, cache, WAF, and optional origin lock. It also generates a **public access code** (printed in the finish banner) so the hostname is not an open login page. VPN clients on `10.8.0.1` skip that gate.
 
 > **The OpenVPN tunnel is never sent through Cloudflare.** UDP/TCP 1194 (and the ephemeral redirect ports) stay direct to your VPS. Cloudflare only sits in front of nginx for the **web portal**.
 

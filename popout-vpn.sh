@@ -4,24 +4,25 @@
 set -euo pipefail
 
 POPOUT_PANEL_ROOT="${POPOUT_PANEL_ROOT:-/opt/popout-vpn}"
-POPOUT_SRC="${POPOUT_PANEL_ROOT}"
+# Sourced install helpers read POPOUT_SRC for the on-disk tree.
+export POPOUT_SRC="${POPOUT_PANEL_ROOT}"
 
 if [[ -f "${POPOUT_PANEL_ROOT}/install/common.sh" ]]; then
-  # shellcheck source=/opt/popout-vpn/install/common.sh
+  # shellcheck source=install/common.sh
   source "${POPOUT_PANEL_ROOT}/install/common.sh"
-  # shellcheck source=/opt/popout-vpn/install/os.sh
+  # shellcheck source=install/os.sh
   source "${POPOUT_PANEL_ROOT}/install/os.sh"
-  # shellcheck source=/opt/popout-vpn/install/cloudflare.sh
+  # shellcheck source=install/cloudflare.sh
   source "${POPOUT_PANEL_ROOT}/install/cloudflare.sh"
-  # shellcheck source=/opt/popout-vpn/install/firewall-ephemeral.sh
+  # shellcheck source=install/firewall-ephemeral.sh
   source "${POPOUT_PANEL_ROOT}/install/firewall-ephemeral.sh"
-  # shellcheck source=/opt/popout-vpn/install/openvpn.sh
+  # shellcheck source=install/openvpn.sh
   source "${POPOUT_PANEL_ROOT}/install/openvpn.sh"
-  # shellcheck source=/opt/popout-vpn/install/packages.sh
+  # shellcheck source=install/packages.sh
   source "${POPOUT_PANEL_ROOT}/install/packages.sh"
-  # shellcheck source=/opt/popout-vpn/install/panel.sh
+  # shellcheck source=install/panel.sh
   source "${POPOUT_PANEL_ROOT}/install/panel.sh"
-  # shellcheck source=/opt/popout-vpn/install/banner.sh
+  # shellcheck source=install/banner.sh
   source "${POPOUT_PANEL_ROOT}/install/banner.sh"
 else
   echo "Popout VPN is not installed at ${POPOUT_PANEL_ROOT}" >&2

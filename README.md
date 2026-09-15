@@ -13,6 +13,7 @@
 <p align="center">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-1e3a8a" />
   <img alt="Version" src="https://img.shields.io/badge/version-0.1.0-06b6d4" />
+  <img alt="CI" src="https://github.com/Adjent-X/popout-vpn/actions/workflows/ci.yml/badge.svg" />
   <img alt="Platforms" src="https://img.shields.io/badge/OS-Debian%20%7C%20Ubuntu%20%7C%20Fedora%20%7C%20RHEL%20%7C%20Arch-0a0e14" />
   <img alt="Status" src="https://img.shields.io/badge/status-public%20preview-67e8f9" />
 </p>
@@ -142,7 +143,7 @@ Nothing below is required for a VPN-only box. Turn on what matches how you publi
 
 **Cloudflare edge** — orange-cloud the hostname, SSL Full, cache bypass for `/api` and `/dashboard`, WAF (scanners, threat score, hosting ASNs). Valid `/api/v1` keys can be allowlisted at the edge so scripts skip the browser challenges. Optional: nftables so origin `:80`/`:443` only accept [Cloudflare IP ranges](https://www.cloudflare.com/ips/). Details: [docs/CLOUDFLARE.md](docs/CLOUDFLARE.md).
 
-**Public password gate** — a single shared password in front of the Cloudflare hostname (no username). VPN clients on `10.8.0.1` skip it. Useful when the UI is on the internet but you still want a human gate before login.
+**Public password gate** — a single shared access code in front of the Cloudflare hostname (no username). VPN clients on `10.8.0.1` skip it. The installer generates one automatically when you enable Cloudflare; it is printed in the finish banner and saved in `/root/popout-vpn-credentials.txt`.
 
 **Cloudflare Turnstile** — captcha on login/register when the portal is public. Disable it for VPN-only installs.
 

@@ -66,8 +66,8 @@ class SiteSettingsData(BaseModel):
     backup_interval_minutes: int = 30
     backup_keep_count: int = 3
 
-    # Public Cloudflare hostname gate (nginx basic auth; VPN host stays ungated)
-    public_gate_enabled: bool = True
+    # Public Cloudflare hostname gate (in-app access code; VPN host stays ungated)
+    public_gate_enabled: bool = False
     public_gate_password_hash: str = ""
 
     # Shared cert mode: one .ovpn / CN used by many simultaneous clients

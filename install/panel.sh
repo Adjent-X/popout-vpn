@@ -36,12 +36,19 @@ generate_secrets() {
   TUN_IP="${TUN_IP:-10.8.0.1}"
   OVPN_PORT="${OVPN_PORT:-$(detect_openvpn_port 2>/dev/null || echo 1194)}"
   OVPN_PROTO="${OVPN_PROTO:-$(detect_openvpn_proto 2>/dev/null || echo udp)}"
+  load_cloudflare_env 2>/dev/null || true
+  if [[ "${CF_ENABLED:-n}" == "y" && -z "${PUBLIC_GATE_PASSWORD:-}" ]]; then
+    PUBLIC_GATE_PASSWORD="$(openssl rand -base64 18 | tr -d '/+=' | head -c 16)"
+  fi
   save_state JWT_SECRET_KEY "$JWT_SECRET_KEY"
   save_state MONGO_PASSWORD "$MONGO_PASSWORD"
   save_state ADMIN_EMAIL "$ADMIN_EMAIL"
   save_state ADMIN_PASSWORD "$ADMIN_PASSWORD"
   save_state WAN_IP "$WAN_IP"
   save_state TUN_IP "$TUN_IP"
+  if [[ -n "${PUBLIC_GATE_PASSWORD:-}" ]]; then
+    save_state PUBLIC_GATE_PASSWORD "$PUBLIC_GATE_PASSWORD"
+  fi
 }
 
 write_app_env() {
@@ -106,6 +113,7 @@ BRAND_COLOR_ACCENT_BRIGHT="#67e8f9"
 
 BOOTSTRAP_ADMIN_EMAIL=${ADMIN_EMAIL}
 BOOTSTRAP_ADMIN_PASSWORD=${ADMIN_PASSWORD}
+PUBLIC_GATE_PASSWORD=${PUBLIC_GATE_PASSWORD:-}
 
 OPENVPN_FLAVOR=auto
 EASYRSA_PATH=/etc/openvpn/server/easy-rsa
@@ -153,6 +161,7 @@ EOF
 # from ${POPOUT_PANEL_ROOT}/config/app.env
 ADMIN_EMAIL=${ADMIN_EMAIL}
 ADMIN_PASSWORD=${ADMIN_PASSWORD}
+PUBLIC_GATE_PASSWORD=${PUBLIC_GATE_PASSWORD:-}
 VPN_ADMIN_URL=http://${TUN_IP}/
 CLOUDFLARE_ADMIN_URL=${cf_url}
 EOF
@@ -204,7 +213,7 @@ setup_python_backend() {
 setup_frontend_build() {
   info "Installing frontend dependencies and building Next.js (this takes a few minutes)…"
   (
-    cd "${POPOUT_PANEL_ROOT}/frontend"
+    cd "${POPOUT_PANEL_ROOT}/frontend" || exit
     npm install --no-fund --no-audit
     npm run build
   )
@@ -237,7 +246,6 @@ write_nginx() {
   load_state
   load_cloudflare_env 2>/dev/null || true
   local tun="${TUN_IP:-10.8.0.1}"
-  local public_name="${CF_HOST:-_}"
   mkdir -p /etc/nginx/snippets /etc/nginx/conf.d
   if [[ -f "${POPOUT_SRC}/config/nginx.snippets.cloudflare-realip.conf" ]]; then
     install -m 644 "${POPOUT_SRC}/config/nginx.snippets.cloudflare-realip.conf" \
@@ -425,8 +433,7 @@ maybe_install_shaping() {
 
 wait_for_health() {
   info "Waiting for API health…"
-  local i
-  for i in $(seq 1 30); do
+  for _ in $(seq 1 30); do
     if curl -fsS --max-time 2 http://127.0.0.1:8000/api/health >/dev/null 2>&1; then
       ok "API is up"
       return
@@ -434,6 +441,54 @@ wait_for_health() {
     sleep 1
   done
   warn "API did not respond on :8000 yet — check: journalctl -u popout-backend -e"
+}
+
+seed_public_gate_into_app() {
+  load_state
+  [[ -n "${PUBLIC_GATE_PASSWORD:-}" ]] || return 0
+  local py="${POPOUT_PANEL_ROOT}/backend/.venv/bin/python"
+  [[ -x "$py" ]] || return 0
+  info "Enabling public access code on the Cloudflare hostname…"
+  (
+    cd "${POPOUT_PANEL_ROOT}/backend" || exit
+    set -a
+    # shellcheck disable=SC1091
+    source "${POPOUT_PANEL_ROOT}/config/app.env"
+    set +a
+    PUBLIC_GATE_PASSWORD="${PUBLIC_GATE_PASSWORD}" "$py" - <<'PY'
+import asyncio
+import os
+
+from app.core.security import hash_password
+from app.db import close_db, connect_db
+from app.services.site_settings import get_site_settings, update_site_settings
+
+
+async def main() -> None:
+    pw = (os.environ.get("PUBLIC_GATE_PASSWORD") or "").strip()
+    if not pw:
+        return
+    await connect_db(retries=10, delay_seconds=1.0)
+    data, _ = await get_site_settings(use_cache=False)
+    if (data.public_gate_password_hash or "").strip():
+        if not data.public_gate_enabled:
+            await update_site_settings({"public_gate_enabled": True})
+        await close_db()
+        print("public gate already configured")
+        return
+    await update_site_settings(
+        {
+            "public_gate_enabled": True,
+            "public_gate_password_hash": hash_password(pw),
+        }
+    )
+    await close_db()
+    print("public gate enabled")
+
+
+asyncio.run(main())
+PY
+  ) || warn "Could not seed public access code — set it under Server settings after login"
 }
 
 deploy_panel_stack() {
@@ -449,4 +504,5 @@ deploy_panel_stack() {
   install_cli
   maybe_install_shaping
   wait_for_health
+  seed_public_gate_into_app
 }

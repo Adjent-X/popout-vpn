@@ -81,7 +81,9 @@ uninstall_stack() {
         /etc/systemd/system/popout-ephemeral-ports.service
   systemctl daemon-reload
   rm -f /usr/local/bin/popout-vpn /etc/nginx/conf.d/popout-vpn.conf
-  nginx -t >/dev/null 2>&1 && systemctl reload nginx || true
+  if nginx -t >/dev/null 2>&1; then
+    systemctl reload nginx || true
+  fi
   yn="$(ask_yn "Also delete ${POPOUT_PANEL_ROOT}? [y/N]" "n")"
   if [[ "$yn" == "y" ]]; then
     rm -rf "${POPOUT_PANEL_ROOT}"

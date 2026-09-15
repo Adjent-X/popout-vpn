@@ -34,8 +34,11 @@ setup_ephemeral_ports() {
     ovpn_port="$(detect_openvpn_port)"
     ovpn_proto="$(detect_openvpn_proto)"
   else
+    ovpn_port="$(detect_openvpn_port_safe)"
+    ovpn_proto="$(detect_openvpn_proto_safe)"
+  fi
   ovpn_port="${ovpn_port:-1194}"
-  # proto may be udp4/tcp4
+  ovpn_proto="${ovpn_proto:-udp}"
   case "$ovpn_proto" in
     tcp*) ovpn_proto="tcp" ;;
     *) ovpn_proto="udp" ;;

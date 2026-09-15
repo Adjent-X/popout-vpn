@@ -1,5 +1,11 @@
 # Changelog
 
+## Unreleased
+
+- CI: shellcheck now follows sourced installer helpers (`-x`) and fails the job on those findings.
+- Installer generates a public access code when Cloudflare is enabled and prints it on the finish screen.
+- Fix missing `fi` in ephemeral-ports setup that could skip NAT REDIRECT configuration.
+
 ## 0.1.0 — 2026-09-14
 
 Public preview.

@@ -180,8 +180,9 @@ save_state() {
 
 load_state() {
   if [[ -f "${POPOUT_STATE}" ]]; then
-    # shellcheck disable=SC1090
     set -a
+    # shellcheck disable=SC1090
+    # shellcheck source=/dev/null
     source "${POPOUT_STATE}"
     set +a
   fi

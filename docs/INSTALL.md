@@ -40,18 +40,18 @@ sudo popout-vpn reinstall
 2. Packages: curl, nginx, Python 3 venv, Node 20, MongoDB, ipset, iptables, tcpdump.
 3. **OpenVPN** — if `/etc/openvpn/server/server.conf` is missing, Angristan’s script is downloaded and run **interactively**. Finish that wizard (protocol, port, DNS, first client) before expecting Popout to continue.
 4. **Cloudflare?** `[y/N]`. Yes → domain + API token or Global API Key. See [CLOUDFLARE.md](CLOUDFLARE.md).
-5. Secrets generated: JWT, Mongo password, first admin password.
+5. Secrets generated: JWT, Mongo password, first admin password, and (if Cloudflare is on) a public access code.
 6. Panel at `/opt/popout-vpn`, systemd `popout-backend` / `popout-frontend` / `popout-attacks`.
 7. nginx: VPN-only on `10.8.0.1:80`; if Cloudflare, 443 on the WAN with a self-signed origin cert.
 8. ipset `ephemeral-ports` + NAT `REDIRECT` to the OpenVPN listen port.
 9. Zone auto-tune (if enabled).
-10. Pi-hole-style banner with URLs and the default login. Copy is also in `/root/popout-vpn-credentials.txt` (mode 600).
+10. Pi-hole-style banner with URLs, the default login, and the public access code when Cloudflare is on. Copy is also in `/root/popout-vpn-credentials.txt` (mode 600).
 
 ## After install
 
 1. Import the `.ovpn` Angristan (or Popout) issued onto your laptop.
 2. Connect.
-3. Open `http://10.8.0.1/` (or the Cloudflare hostname).
+3. Open `http://10.8.0.1/` (or the Cloudflare hostname — enter the access code first if you enabled Cloudflare).
 4. Sign in with the generated email/password.
 5. **Change the password**, then remove `BOOTSTRAP_ADMIN_PASSWORD` from `/opt/popout-vpn/config/app.env`.
 

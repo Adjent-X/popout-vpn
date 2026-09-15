@@ -1,6 +1,7 @@
 #!/bin/bash
 # Popout VPN — attack monitor (daemon mode)
 # Sources live settings from /etc/popout-vpn/attacks.conf when present.
+# shellcheck shell=bash
 
 set -u
 
@@ -23,15 +24,9 @@ load_config() {
     threshold_critical=250000
     required_hits=5
     cooldown=300
-    webhook_url=""
-    mitigation_system="OVH Advanced DDoS Protection"
-    affected_service="vpn"
-    banner_url=""
-    footer_text="Popout VPN"
     enable_capture=true
     capture_dir="/var/log/popout-vpn/captures"
     events_dir="/var/log/popout-vpn/events"
-    capture_duration=0
     capture_filter=""
     capture_packet_count=4500
     capture_snaplength=65535
@@ -120,6 +115,7 @@ start_capture() {
 
     # Validate BPF up front so a bad filter cannot silently yield an empty pcap.
     if [ -n "${capture_filter}" ]; then
+        # shellcheck disable=SC2086
         if ! tcpdump -i "$interface" -d $capture_filter >/dev/null 2>"${capture_dir}/.last_bpf_err"; then
             log "ERROR: BPF rejected by tcpdump; refusing capture. filter='${capture_filter}' err=$(tr '\n' ' ' <"${capture_dir}/.last_bpf_err" 2>/dev/null)"
             capture_file=""

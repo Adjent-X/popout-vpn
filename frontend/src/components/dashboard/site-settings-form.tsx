@@ -285,7 +285,7 @@ export function SiteSettingsForm() {
     );
     setBackupIntervalMinutes(data.backup_interval_minutes ?? 30);
     setBackupKeepCount(data.backup_keep_count ?? 3);
-    setPublicGateEnabled(data.public_gate_enabled ?? true);
+    setPublicGateEnabled(data.public_gate_enabled ?? false);
     setPublicGatePassword("");
     setDuplicateCnMode(Boolean(data.duplicate_cn_mode));
     setDuplicateCnDetected(Boolean(data.duplicate_cn_detected));

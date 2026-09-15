@@ -44,6 +44,10 @@ ART
   echo "  ${C_BOLD}Default login${C_RESET}  ${C_DIM}(change this immediately)${C_RESET}"
   echo "    Email       : ${C_YELLOW}${ADMIN_EMAIL}${C_RESET}"
   echo "    Password    : ${C_YELLOW}${ADMIN_PASSWORD}${C_RESET}"
+  if [[ -n "${PUBLIC_GATE_PASSWORD:-}" ]]; then
+    echo "    Access code : ${C_YELLOW}${PUBLIC_GATE_PASSWORD}${C_RESET}"
+    echo "    ${C_DIM}(Cloudflare hostname only — the VPN URL skips this gate)${C_RESET}"
+  fi
   echo "    Saved at    : ${POPOUT_CRED_FILE}"
   echo
   echo "  ${C_BOLD}Useful commands${C_RESET}"

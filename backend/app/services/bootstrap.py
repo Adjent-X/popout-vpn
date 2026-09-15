@@ -59,3 +59,42 @@ async def ensure_bootstrap_admin() -> None:
         "and clear BOOTSTRAP_ADMIN_PASSWORD from config/app.env when done",
         email,
     )
+
+
+async def ensure_bootstrap_public_gate() -> None:
+    """
+    If PUBLIC_GATE_PASSWORD is set and no gate hash exists yet, enable the
+    public hostname access code. Never overwrites an operator-set password.
+    """
+    if not is_connected():
+        return
+
+    settings = get_settings()
+    password = (settings.PUBLIC_GATE_PASSWORD or "").strip()
+    if not password:
+        return
+    if len(password) < 8:
+        logger.warning(
+            "PUBLIC_GATE_PASSWORD is shorter than 8 characters — refusing to seed"
+        )
+        return
+
+    from app.services.site_settings import get_site_settings, update_site_settings
+
+    data, _ = await get_site_settings(use_cache=False)
+    if (data.public_gate_password_hash or "").strip():
+        if not data.public_gate_enabled:
+            await update_site_settings({"public_gate_enabled": True})
+            logger.info("Public access gate enabled (password already configured)")
+        return
+
+    await update_site_settings(
+        {
+            "public_gate_enabled": True,
+            "public_gate_password_hash": hash_password(password),
+        }
+    )
+    logger.warning(
+        "Bootstrapped public access code — change it under Server settings, "
+        "then clear PUBLIC_GATE_PASSWORD from config/app.env"
+    )
